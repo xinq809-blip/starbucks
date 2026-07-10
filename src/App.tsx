@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import PasswordGate from './components/PasswordGate';
 import Layout from './components/Layout';
@@ -13,7 +13,7 @@ export default function App() {
   return (
     <AppProvider>
       <PasswordGate>
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
@@ -24,7 +24,7 @@ export default function App() {
             <Route path="/billiard" element={<Billiard />} />
           </Route>
         </Routes>
-      </BrowserRouter>
+      </HashRouter>
       </PasswordGate>
     </AppProvider>
   );
