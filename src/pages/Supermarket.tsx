@@ -3,6 +3,7 @@ import { Plus, X, Search, Calendar, Globe, Building2, Package, AlertCircle, Tras
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import type { NewProductListing, PromotionSlot, PlatformRollout } from '../types/supermarket';
 import { supabase } from '../lib/supabase';
+import { products as allProducts } from '../data/mockData';
 
 const STORES = [
   { id: 's1', name: '唐百', color: '#3b82f6' },
@@ -368,9 +369,11 @@ function FormBody({ modal, setModal, listings, setListings, promos, setPromos, r
   return (
     <div className="p-6 space-y-4">
       <div>
-        <label className={labelClass}>产品名称 *</label>
-        <input value={form.productName} onChange={e => update('productName', e.target.value)}
-          placeholder="输入产品名称" autoFocus className={inputClass} />
+        <label className={labelClass}>选择产品 *</label>
+        <select value={form.productName} onChange={e => update('productName', e.target.value)} autoFocus className={inputClass}>
+          <option value="">-- 选择 SKU --</option>
+          {allProducts.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
+        </select>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -660,12 +663,44 @@ function RolloutTable({ items, setItems, search }: { items: PlatformRollout[]; s
     return Object.entries(map).map(([cat, d]) => ({ cat, ...d })).sort((a, b) => b.total - a.total);
   }, [filtered]);
 
+  // 各平台上翻单品数汇总
+  const platformSummary = useMemo(() => {
+    const map: Record<string, { total: number; online: number }> = {};
+    for (const i of filtered) {
+      const p = i.platform || '未指定';
+      if (!map[p]) map[p] = { total: 0, online: 0 };
+      map[p].total++;
+      if (i.status === 'online') map[p].online++;
+    }
+    return Object.entries(map).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
   if (filtered.length === 0 && search) {
     return <div className="py-16 text-center text-gray-400 text-sm">没有找到匹配「{search}」的结果</div>;
   }
 
   return (
     <div>
+      {/* 各平台上翻单品数 */}
+      {platformSummary.length > 0 && (
+        <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-white">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">各平台上翻单品数量</p>
+          <div className="flex flex-wrap gap-3">
+            {platformSummary.map(p => (
+              <div key={p.name} className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5 flex items-center gap-3">
+                <Globe size={14} className="text-blue-500 flex-shrink-0" />
+                <span className="text-xs font-bold text-gray-700">{p.name}</span>
+                <span className="text-[11px] text-gray-500">{p.total} 个单品</span>
+                <span className="text-[11px] text-emerald-600">已上线 {p.online}</span>
+                <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-400 rounded-full" style={{ width: `${p.total > 0 ? (p.online / p.total) * 100 : 0}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {catSummary.length > 0 && (
         <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50/50 to-white">
           <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">品类上翻数量汇总</p>
