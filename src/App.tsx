@@ -8,6 +8,8 @@ import History from './pages/History';
 import Products from './pages/Products';
 import Supermarket from './pages/Supermarket';
 import Billiard from './pages/Billiard';
+import Distributors from './pages/Distributors';
+import DistributorDetail from './pages/DistributorDetail';
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
             <Route path="/products" element={<Products />} />
             <Route path="/supermarket" element={<Supermarket />} />
             <Route path="/billiard" element={<Billiard />} />
+            <Route path="/distributors" element={<Distributors />} />
+            <Route path="/distributor/:id" element={<DistributorDetail />} />
           </Route>
         </Routes>
       </HashRouter>

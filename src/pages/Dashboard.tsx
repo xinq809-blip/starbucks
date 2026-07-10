@@ -494,6 +494,9 @@ export default function Dashboard() {
 
           {/* Row 4: 椰椰拿铁 & P450 黑咖啡 重点产品分析 */}
           <FocusProducts snapshots={snapshots} restocks={restocks} distributors={distributors} currentWeek={currentWeek} weeks={weeks} />
+
+          {/* Row 5: 经销商排名 */}
+          <DistRanking snapshots={snapshots} restocks={restocks} currentWeek={currentWeek} weeks={weeks} products={products} />
         </>
       ) : (
         <>
@@ -648,6 +651,68 @@ export default function Dashboard() {
           .grid { break-inside: avoid; }
         }
       `}</style>
+    </div>
+  );
+}
+
+/* ==================== 经销商排名 ==================== */
+function DistRanking({ snapshots, restocks, currentWeek, weeks, products }: any) {
+  const dists = useMemo(() => {
+    try { const r = localStorage.getItem('sb_distributors_v2'); if (r) return JSON.parse(r); } catch {}
+    return [
+      { id: 'd1', name: '山海关梁波' }, { id: 'd2', name: '杨子' },
+      { id: 'd3', name: '速恩' }, { id: 'd4', name: '北戴河王总' },
+    ];
+  }, []);
+
+  const ranking = useMemo(() => {
+    if (weeks.length < 2) return [];
+    const prevWeek = weeks[weeks.length - 2];
+    return dists.map((d: any) => {
+      const ws = getWeeklySales(snapshots, currentWeek, restocks);
+      const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
+      const stock = snapshots.filter((s: any) => s.weekStart === currentWeek && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
+      const prevWs = getWeeklySales(snapshots, prevWeek, restocks);
+      const prevSales = prevWs.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
+      const value = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => {
+        const p = products.find((x: any) => x.id === r.productId);
+        return a + Math.max(0, r.sales) * (p?.unitPrice ?? 0);
+      }, 0);
+      return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0 };
+    }).sort((a: any, b: any) => b.sales - a.sales);
+  }, [snapshots, restocks, currentWeek, weeks, dists]);
+
+  if (ranking.length === 0) return null;
+  const maxSales = Math.max(...ranking.map((r: any) => r.sales), 1);
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <h3 className="text-sm font-semibold text-gray-700 mb-4">经销商出货排名</h3>
+      <div className="space-y-3">
+        {ranking.map((d: any, i: number) => (
+          <div key={d.id} className="flex items-center gap-4">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+              i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-500' : i === 2 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'
+            }`}>{i + 1}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-gray-800">{d.name}</span>
+                  <span className={`text-[10px] font-bold ${d.change > 0 ? 'text-emerald-600' : d.change < 0 ? 'text-red-500' : 'text-gray-300'}`}>
+                    {d.change > 0 ? '↑' : d.change < 0 ? '↓' : '─'} {d.change !== 0 ? Math.abs(d.change).toFixed(0) + '%' : ''}
+                  </span>
+                </div>
+                <span className="text-xs text-gray-500">{d.sales} 件 · ¥{Math.round(d.value).toLocaleString()}</span>
+              </div>
+              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${
+                  i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-starbucks-400'
+                }`} style={{ width: `${(d.sales / maxSales) * 100}%` }} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

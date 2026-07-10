@@ -18,6 +18,8 @@ export interface Distributor {
   id: string;
   name: string;
   region: string;
+  phone: string;
+  address: string;
 }
 
 export interface WeeklySnapshot {
