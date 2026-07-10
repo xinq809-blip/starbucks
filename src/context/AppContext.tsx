@@ -17,6 +17,7 @@ type Action =
   | { type: 'SET_SNAPSHOTS'; payload: WeeklySnapshot[] }
   | { type: 'SET_RESTOCKS'; payload: RestockRecord[] }
   | { type: 'SET_TARGETS'; payload: MonthlyTarget[] }
+  | { type: 'SET_DISTRIBUTORS'; payload: Distributor[] }
   | { type: 'SAVE_WEEK_DONE'; payload: WeeklySnapshot[] }
   | { type: 'SET_TARGET'; payload: MonthlyTarget }
   | { type: 'ADD_RESTOCK_DONE'; payload: RestockRecord[] }
@@ -36,6 +37,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, snapshots: action.payload };
     case 'SET_TARGET':
       return { ...state, targets: [...state.targets.filter((t) => t.month !== action.payload.month), action.payload] };
+    case 'SET_DISTRIBUTORS':
+      return { ...state, distributors: action.payload };
     case 'ADD_RESTOCK_DONE':
       return { ...state, restocks: action.payload };
     case 'DELETE_RESTOCK_DONE':
@@ -45,13 +48,21 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
+function loadLocalDistributors(): Distributor[] {
+  try {
+    const r = localStorage.getItem('sb_distributors_v2');
+    if (r) return JSON.parse(r);
+  } catch {}
+  return initialDistributors;
+}
+
 const initialState: AppState = {
   products: initialProducts,
-  distributors: initialDistributors,
+  distributors: loadLocalDistributors(),
   snapshots: [],
   restocks: [],
   targets: [],
-  loaded: true,  // Start immediately, load data in background
+  loaded: true,
 };
 
 const AppContext = createContext<{

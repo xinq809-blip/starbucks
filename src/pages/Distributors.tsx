@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Plus, Trash2, Pencil, X, Building2, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useApp } from '../context/AppContext';
 import type { Distributor } from '../types';
 
 const STORAGE_KEY = 'sb_distributors_v2';
@@ -25,13 +26,18 @@ function saveDistributors(data: Distributor[]) {
 function genId() { return 'd' + Date.now().toString(36); }
 
 export default function DistributorsPage() {
+  const { dispatch } = useApp();
   const [items, setItems] = useState<Distributor[]>(loadDistributors);
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: '', region: '', phone: '', address: '' });
   const nav = useNavigate();
 
-  const flush = (data: Distributor[]) => { setItems(data); saveDistributors(data); };
+  const flush = (data: Distributor[]) => {
+    setItems(data);
+    saveDistributors(data);
+    dispatch({ type: 'SET_DISTRIBUTORS', payload: data });
+  };
 
   const resetForm = () => setForm({ name: '', region: '', phone: '', address: '' });
 
