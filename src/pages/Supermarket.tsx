@@ -647,11 +647,43 @@ function RolloutTable({ items, setItems, search }: { items: PlatformRollout[]; s
     } : i));
   };
 
+  // 品类上翻汇总
+  const catSummary = useMemo(() => {
+    const map: Record<string, { total: number; online: number; inProgress: number }> = {};
+    for (const i of filtered) {
+      const cat = i.productName.split(' ')[0] || '其他';
+      if (!map[cat]) map[cat] = { total: 0, online: 0, inProgress: 0 };
+      map[cat].total++;
+      if (i.status === 'online') map[cat].online++;
+      if (i.status === 'in_progress') map[cat].inProgress++;
+    }
+    return Object.entries(map).map(([cat, d]) => ({ cat, ...d })).sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
   if (filtered.length === 0 && search) {
     return <div className="py-16 text-center text-gray-400 text-sm">没有找到匹配「{search}」的结果</div>;
   }
 
   return (
+    <div>
+      {catSummary.length > 0 && (
+        <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-violet-50/50 to-white">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">品类上翻数量汇总</p>
+          <div className="flex flex-wrap gap-3">
+            {catSummary.map(c => (
+              <div key={c.cat} className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5 flex items-center gap-3">
+                <span className="text-xs font-bold text-gray-700">{c.cat}</span>
+                <span className="text-[11px] text-gray-500">总计 <b className="text-gray-800">{c.total}</b></span>
+                <span className="text-[11px] text-emerald-600">已上线 <b>{c.online}</b></span>
+                <span className="text-[11px] text-blue-500">推进中 <b>{c.inProgress}</b></span>
+                <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-violet-400 rounded-full" style={{ width: `${c.total > 0 ? (c.online / c.total) * 100 : 0}%` }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
@@ -709,6 +741,7 @@ function RolloutTable({ items, setItems, search }: { items: PlatformRollout[]; s
           })}
         </tbody>
       </table>
+    </div>
     </div>
   );
 }
