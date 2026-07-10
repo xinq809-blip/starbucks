@@ -663,16 +663,13 @@ function RolloutTable({ items, setItems, search }: { items: PlatformRollout[]; s
     return Object.entries(map).map(([cat, d]) => ({ cat, ...d })).sort((a, b) => b.total - a.total);
   }, [filtered]);
 
-  // 各平台上翻单品数汇总
-  const platformSummary = useMemo(() => {
-    const map: Record<string, { total: number; online: number }> = {};
-    for (const i of filtered) {
-      const p = i.platform || '未指定';
-      if (!map[p]) map[p] = { total: 0, online: 0 };
-      map[p].total++;
-      if (i.status === 'online') map[p].online++;
-    }
-    return Object.entries(map).map(([name, d]) => ({ name, ...d })).sort((a, b) => b.total - a.total);
+  // 各商超上翻单品数汇总
+  const storeSummary = useMemo(() => {
+    return STORES.map(s => {
+      const items = filtered.filter(i => i.supermarketId === s.id);
+      const online = items.filter(i => i.status === 'online').length;
+      return { ...s, total: items.length, online };
+    }).filter(s => s.total > 0).sort((a, b) => b.total - a.total);
   }, [filtered]);
 
   if (filtered.length === 0 && search) {
@@ -681,19 +678,19 @@ function RolloutTable({ items, setItems, search }: { items: PlatformRollout[]; s
 
   return (
     <div>
-      {/* 各平台上翻单品数 */}
-      {platformSummary.length > 0 && (
+      {/* 各商超上翻单品数 */}
+      {storeSummary.length > 0 && (
         <div className="px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50/50 to-white">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">各平台上翻单品数量</p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">各商超上翻单品数量</p>
           <div className="flex flex-wrap gap-3">
-            {platformSummary.map(p => (
-              <div key={p.name} className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5 flex items-center gap-3">
-                <Globe size={14} className="text-blue-500 flex-shrink-0" />
-                <span className="text-xs font-bold text-gray-700">{p.name}</span>
-                <span className="text-[11px] text-gray-500">{p.total} 个单品</span>
-                <span className="text-[11px] text-emerald-600">已上线 {p.online}</span>
+            {storeSummary.map(s => (
+              <div key={s.id} className="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5 flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                <span className="text-xs font-bold text-gray-700">{s.name}</span>
+                <span className="text-[11px] text-gray-500">{s.total} 个 SKU 上翻</span>
+                <span className="text-[11px] text-emerald-600">已上线 {s.online}</span>
                 <div className="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-400 rounded-full" style={{ width: `${p.total > 0 ? (p.online / p.total) * 100 : 0}%` }} />
+                  <div className="h-full rounded-full" style={{ width: `${s.total > 0 ? (s.online / s.total) * 100 : 0}%`, backgroundColor: s.color }} />
                 </div>
               </div>
             ))}
