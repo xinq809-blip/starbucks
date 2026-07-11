@@ -1,6 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, X, Search, Calendar, Globe, Building2, Package, AlertCircle, Trash2 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import type { NewProductListing, PromotionSlot, PlatformRollout } from '../types/supermarket';
 import { supabase } from '../lib/supabase';
 import { products as allProducts } from '../data/mockData';
@@ -101,20 +100,6 @@ export default function SupermarketPage() {
     return { lTotal, lDone, pTotal, pActive, rTotal, rDone, storesData };
   }, [listings, promos, rollouts]);
 
-  // Pie data for listing
-  const listingPie = useMemo(() => L_STATUS.map(s => ({
-    name: s.label,
-    value: listings.filter(l => l.status === s.key).length,
-    color: s.color,
-  })).filter(d => d.value > 0), [listings]);
-
-  // Store bar chart for listing progress
-  const storeBarData = useMemo(() => overview.storesData.map(s => ({
-    name: s.name,
-    已上架: s.listed,
-    进行中: s.listing - s.listed,
-  })), [overview.storesData]);
-
   return (
     <div className="p-4 md:p-6 space-y-5 max-w-7xl mx-auto">
       {/* ====== Header ====== */}
@@ -211,46 +196,6 @@ export default function SupermarketPage() {
             </div>
           </div>
         ))}
-      </div>
-
-      {/* ====== Charts Row ====== */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Store listing progress bar chart */}
-        <div className="md:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">各商超上架进度</h3>
-          {overview.lTotal > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <BarChart data={storeBarData} layout="vertical">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                <XAxis type="number" tick={{ fontSize: 11 }} />
-                <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={70} />
-                <Tooltip />
-                <Bar dataKey="已上架" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
-                <Bar dataKey="进行中" stackId="a" fill="#e5e7eb" radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-300 text-sm">暂无上架数据</div>
-          )}
-        </div>
-
-        {/* Listing status pie */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h3 className="text-sm font-semibold text-gray-700 mb-4">上架状态分布</h3>
-          {listingPie.length > 0 ? (
-            <ResponsiveContainer width="100%" height={200}>
-              <PieChart>
-                <Pie data={listingPie} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={70} innerRadius={35}
-                  label={({ name, value }) => `${name} ${value}`} labelLine={{ stroke: '#d1d5db' }}>
-                  {listingPie.map((d, i) => <Cell key={i} fill={d.color} />)}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex items-center justify-center h-[200px] text-gray-300 text-sm">暂无数据</div>
-          )}
-        </div>
       </div>
 
       {/* ====== Tab Switcher ====== */}
