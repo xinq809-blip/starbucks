@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, X, Search, Calendar, Globe, Building2, Package, AlertCircle, Trash2 } from 'lucide-react';
+import { Plus, X, Search, Calendar, Globe, Package, AlertCircle, Trash2 } from 'lucide-react';
 import type { NewProductListing, PromotionSlot, PlatformRollout } from '../types/supermarket';
 import { supabase } from '../lib/supabase';
 import { products as allProducts } from '../data/mockData';
@@ -106,96 +106,136 @@ export default function SupermarketPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">商超渠道管理系统</h1>
-          <p className="text-xs text-gray-400 mt-0.5">新品上架追踪 · 档期活动管理 · 平台翻单进度 · 覆盖 6 家商超系统</p>
-        </div>
-        <div className="text-xs text-gray-400">
-          数据更新: {new Date().toLocaleDateString('zh-CN')}
+          <p className="text-xs text-gray-400 mt-0.5">{new Date().toLocaleDateString('zh-CN')} · 覆盖 {STORES.length} 家商超系统</p>
         </div>
       </div>
 
-      {/* ====== KPI Cards ====== */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* ====== Dashboard Row: 3 Big Metrics ====== */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 新品上架 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center"><Package size={20} className="text-blue-500" /></div>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${overview.lDone === overview.lTotal && overview.lTotal > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-              {overview.lTotal > 0 ? Math.round((overview.lDone / overview.lTotal) * 100) + '%' : '—'}
-            </span>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 flex items-center justify-center"><Package size={22} className="text-blue-500" /></div>
+            <div>
+              <p className="text-sm font-bold text-gray-800">新品上架进度</p>
+              <p className="text-[11px] text-gray-400">{overview.lDone}/{overview.lTotal} 已上架</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-gray-800">{overview.lDone}<span className="text-sm font-normal text-gray-300">/{overview.lTotal}</span></p>
-          <p className="text-xs text-gray-400 mt-1">新品已上架 / 总数</p>
-          <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-blue-400 to-blue-500 rounded-full transition-all duration-500" style={{ width: `${overview.lTotal > 0 ? (overview.lDone / overview.lTotal) * 100 : 0}%` }} />
+          <div className="flex items-end gap-2 mb-2">
+            <span className="text-3xl font-bold text-gray-800">{overview.lTotal > 0 ? Math.round((overview.lDone / overview.lTotal) * 100) : 0}%</span>
+            <span className="text-xs text-gray-400 mb-1">完成率</span>
+          </div>
+          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full transition-all" style={{ width: `${overview.lTotal > 0 ? (overview.lDone / overview.lTotal) * 100 : 0}%` }} />
+          </div>
+          <div className="flex justify-between mt-2 text-[11px] text-gray-400">
+            <span>洽谈 {listings.filter(l=>l.status==='negotiating').length}</span>
+            <span>通过 {listings.filter(l=>l.status==='approved').length}</span>
+            <span>上架 {overview.lDone}</span>
           </div>
         </div>
 
+        {/* 平台翻单 */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center"><Calendar size={20} className="text-amber-500" /></div>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-medium">{overview.pActive} 进行中</span>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-violet-50 flex items-center justify-center"><Globe size={22} className="text-violet-500" /></div>
+            <div>
+              <p className="text-sm font-bold text-gray-800">平台翻单进度</p>
+              <p className="text-[11px] text-gray-400">{overview.rDone}/{overview.rTotal} 已上线</p>
+            </div>
           </div>
-          <p className="text-2xl font-bold text-gray-800">{overview.pTotal}<span className="text-sm font-normal text-gray-300"> 个</span></p>
-          <p className="text-xs text-gray-400 mt-1">档期活动总数</p>
-          <div className="mt-3 flex gap-1">
+          <div className="flex items-end gap-2 mb-2">
+            <span className="text-3xl font-bold text-gray-800">{overview.rTotal > 0 ? Math.round((overview.rDone / overview.rTotal) * 100) : 0}%</span>
+            <span className="text-xs text-gray-400 mb-1">完成率</span>
+          </div>
+          <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-violet-400 to-violet-600 rounded-full transition-all" style={{ width: `${overview.rTotal > 0 ? (overview.rDone / overview.rTotal) * 100 : 0}%` }} />
+          </div>
+          <div className="flex justify-between mt-2 text-[11px] text-gray-400">
+            <span>待处理 {rollouts.filter(r=>r.status==='pending').length}</span>
+            <span>推进中 {rollouts.filter(r=>r.status==='in_progress').length}</span>
+            <span>已上线 {overview.rDone}</span>
+          </div>
+        </div>
+
+        {/* 档期活动 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center"><Calendar size={22} className="text-amber-500" /></div>
+            <div>
+              <p className="text-sm font-bold text-gray-800">档期活动</p>
+              <p className="text-[11px] text-gray-400">{overview.pTotal} 个档期 · {overview.pActive} 进行中</p>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-2 mt-1">
             {P_STATUS.map(s => {
               const cnt = promos.filter(p => p.status === s.key).length;
-              return cnt > 0 ? (
-                <div key={s.key} className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: s.color }} title={`${s.label}: ${cnt}`} />
-              ) : null;
+              return (
+                <div key={s.key} className="text-center">
+                  <p className="text-lg font-bold" style={{ color: s.color }}>{cnt}</p>
+                  <p className="text-[10px] text-gray-400">{s.label}</p>
+                </div>
+              );
             })}
           </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-50 flex items-center justify-center"><Globe size={20} className="text-violet-500" /></div>
-            <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${overview.rDone === overview.rTotal && overview.rTotal > 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-violet-50 text-violet-600'}`}>
-              {overview.rTotal > 0 ? Math.round((overview.rDone / overview.rTotal) * 100) + '%' : '—'}
-            </span>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{overview.rDone}<span className="text-sm font-normal text-gray-300">/{overview.rTotal}</span></p>
-          <p className="text-xs text-gray-400 mt-1">平台已上线 / 总数</p>
-          <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-violet-400 to-violet-500 rounded-full transition-all duration-500" style={{ width: `${overview.rTotal > 0 ? (overview.rDone / overview.rTotal) * 100 : 0}%` }} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center"><Building2 size={20} className="text-emerald-500" /></div>
-          </div>
-          <p className="text-2xl font-bold text-gray-800">{STORES.length}<span className="text-sm font-normal text-gray-300"> 家</span></p>
-          <p className="text-xs text-gray-400 mt-1">覆盖商超系统</p>
-          <div className="mt-3 flex flex-wrap gap-1">
-            {STORES.map(s => (
-              <span key={s.id} className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500">{s.name}</span>
-            ))}
-          </div>
+          {/* Upcoming alert */}
+          {promos.filter(p => p.status !== 'done' && p.startDate).length > 0 && (
+            <div className="mt-3 pt-3 border-t border-gray-50 text-[10px] text-amber-600 flex items-center gap-1">
+              <AlertCircle size={11} />
+              {promos.filter(p => p.status !== 'done' && p.startDate).length} 个档期待执行
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ====== Per-Store Cards: 上翻SKU数量 ====== */}
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">各商超平台上翻 SKU 数量</p>
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {overview.storesData.map(s => (
-          <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-              <p className="text-sm font-bold text-gray-800 truncate">{s.name}</p>
-            </div>
-            <div className="text-center mb-2">
-              <p className="text-3xl font-bold" style={{ color: s.color }}>{s.online}</p>
-              <p className="text-[10px] text-gray-400">已上翻 SKU</p>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
-              <div className="h-full rounded-full transition-all" style={{ width: `${s.rollout > 0 ? (s.online / Math.max(s.rollout, s.online)) * 100 : 0}%`, backgroundColor: s.color }} />
-            </div>
-            <div className="flex justify-between text-[10px] text-gray-400">
-              <span>总计 {s.rollout} 个</span>
-              <span>上架 {s.listed} 档期 {s.promo}</span>
-            </div>
-          </div>
-        ))}
+      {/* ====== Per-Store Table ====== */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="px-5 py-3 border-b border-gray-50 bg-gray-50/50">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">各商超数据汇总</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-100 text-xs text-gray-400">
+                <th className="text-left px-5 py-2.5 font-medium">商超</th>
+                <th className="text-center px-4 py-2.5 font-medium">上翻SKU</th>
+                <th className="text-center px-4 py-2.5 font-medium">上翻进度</th>
+                <th className="text-center px-4 py-2.5 font-medium">新品上架</th>
+                <th className="text-center px-4 py-2.5 font-medium">档期活动</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {overview.storesData.map(s => (
+                <tr key={s.id} className="hover:bg-gray-50/30">
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                      <span className="font-medium text-gray-800 text-xs">{s.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="text-sm font-bold" style={{ color: s.color }}>{s.online}</span>
+                    <span className="text-[10px] text-gray-400">/{s.rollout}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full rounded-full transition-all" style={{ width: `${s.rollout > 0 ? (s.online / s.rollout) * 100 : 0}%`, backgroundColor: s.color }} />
+                      </div>
+                      <span className="text-[10px] text-gray-400 w-8 text-right">{s.rollout > 0 ? Math.round((s.online / s.rollout) * 100) : 0}%</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center text-xs">
+                    <span className="font-medium text-gray-700">{s.listed}</span><span className="text-gray-400">/{s.listing}</span>
+                  </td>
+                  <td className="px-4 py-3 text-center text-xs">
+                    <span className="font-medium text-gray-700">{s.promoActive}</span><span className="text-gray-400">/{s.promo}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* ====== Tab Switcher ====== */}
