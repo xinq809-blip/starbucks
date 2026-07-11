@@ -189,34 +189,26 @@ export default function SupermarketPage() {
         </div>
       </div>
 
-      {/* ====== Per-Store Cards ====== */}
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+      {/* ====== Per-Store Cards: 上翻SKU数量 ====== */}
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">各商超平台上翻 SKU 数量</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         {overview.storesData.map(s => (
-          <div key={s.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-3 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-1.5 mb-2">
-              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-              <p className="text-xs font-semibold text-gray-700 truncate">{s.name}</p>
+          <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+              <p className="text-sm font-bold text-gray-800 truncate">{s.name}</p>
             </div>
-            <div className="space-y-1 text-[10px]">
-              <div className="flex justify-between">
-                <span className="text-gray-400">上架</span>
-                <span className="font-medium text-gray-700">{s.listed}/{s.listing}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">档期</span>
-                <span className="font-medium text-gray-700">{s.promoActive}/{s.promo}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">翻单</span>
-                <span className="font-medium text-gray-700">{s.online}/{s.rollout}</span>
-              </div>
+            <div className="text-center mb-2">
+              <p className="text-3xl font-bold" style={{ color: s.color }}>{s.online}</p>
+              <p className="text-[10px] text-gray-400">已上翻 SKU</p>
             </div>
-            {/* Mini progress */}
-            {s.listing > 0 && (
-              <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all" style={{ width: `${(s.listed / s.listing) * 100}%`, backgroundColor: s.color }} />
-              </div>
-            )}
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+              <div className="h-full rounded-full transition-all" style={{ width: `${s.rollout > 0 ? (s.online / Math.max(s.rollout, s.online)) * 100 : 0}%`, backgroundColor: s.color }} />
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-400">
+              <span>总计 {s.rollout} 个</span>
+              <span>上架 {s.listed} 档期 {s.promo}</span>
+            </div>
           </div>
         ))}
       </div>
