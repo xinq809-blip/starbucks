@@ -1,42 +1,47 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Trash2, Pencil, X, Building2, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 import type { Distributor } from '../types';
 
-const STORAGE_KEY = 'sb_distributors_v2';
-
-function loadDistributors(): Distributor[] {
-  try {
-    const r = localStorage.getItem(STORAGE_KEY);
-    if (r) return JSON.parse(r);
-  } catch {}
-  return [
-    { id: 'd1', name: '山海关梁波', region: '山海关', phone: '', address: '' },
-    { id: 'd2', name: '杨子', region: '', phone: '', address: '' },
-    { id: 'd3', name: '速恩', region: '', phone: '', address: '' },
-    { id: 'd4', name: '北戴河王总', region: '北戴河', phone: '', address: '' },
-  ];
-}
-
-function saveDistributors(data: Distributor[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
+const DEFAULT_DISTRIBUTORS: Distributor[] = [
+  { id: 'd1', name: '山海关梁波', region: '山海关', phone: '', address: '' },
+  { id: 'd2', name: '杨子', region: '', phone: '', address: '' },
+  { id: 'd3', name: '速恩', region: '', phone: '', address: '' },
+  { id: 'd4', name: '北戴河王总', region: '北戴河', phone: '', address: '' },
+];
 
 function genId() { return 'd' + Date.now().toString(36); }
 
 export default function DistributorsPage() {
   const { dispatch } = useApp();
-  const [items, setItems] = useState<Distributor[]>(loadDistributors);
+  const [items, setItems] = useState<Distributor[]>(DEFAULT_DISTRIBUTORS);
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: '', region: '', phone: '', address: '' });
   const nav = useNavigate();
 
+  // Load from Supabase
+  useEffect(() => {
+    supabase.from('distributors').select('*').then(r => {
+      if (r.data && r.data.length > 0) {
+        const data = r.data.map((row: any) => row.data);
+        setItems(data);
+        dispatch({ type: 'SET_DISTRIBUTORS', payload: data });
+      }
+    });
+  }, []);
+
+  // Save to Supabase
   const flush = (data: Distributor[]) => {
     setItems(data);
-    saveDistributors(data);
     dispatch({ type: 'SET_DISTRIBUTORS', payload: data });
+    // Sync to Supabase
+    supabase.from('distributors').delete().neq('id', '__none__').then(() => {
+      const rows = data.map(d => ({ id: d.id, data: d }));
+      if (rows.length > 0) supabase.from('distributors').upsert(rows, { onConflict: 'id' }).then(() => {});
+    });
   };
 
   const resetForm = () => setForm({ name: '', region: '', phone: '', address: '' });

@@ -87,18 +87,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }, 8000);
     (async () => {
       try {
-        const [snapRes, restockRes, targetRes] = await Promise.all([
+        const [snapRes, restockRes, targetRes, distRes] = await Promise.all([
           supabase.from('weekly_snapshots').select('*'),
           supabase.from('restocks').select('*'),
           supabase.from('targets').select('*'),
+          supabase.from('distributors').select('*'),
         ]);
         if (!cancelled) {
           clearTimeout(timer);
+          const distData = (distRes.data || []).map((r: any) => r.data);
           dispatch({ type: 'INIT_DATA', payload: {
             snapshots: (snapRes.data || []).map((r: any) => ({ weekStart: r.week_start, productId: r.product_id, distributorId: r.distributor_id, quantity: r.quantity })),
             restocks: (restockRes.data || []).map((r: any) => ({ id: r.id, date: r.date, productId: r.product_id, distributorId: r.distributor_id, quantity: r.quantity, weekStart: r.week_start })),
             targets: (targetRes.data || []).map((r: any) => ({ month: r.month, salesTarget: r.sales_target })),
           }});
+          if (distData.length > 0) dispatch({ type: 'SET_DISTRIBUTORS', payload: distData });
         }
       } catch {
         if (!cancelled) { clearTimeout(timer); setLoadErr(true); dispatch({ type: 'INIT_DATA', payload: { snapshots: [], restocks: [], targets: [] } }); }
