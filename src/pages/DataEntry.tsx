@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { getAvailableWeeks, getLatestWeek, getWeekLabel } from '../data/mockData';
-import { Save, ArrowLeft, ArrowRight, Copy, Check, RotateCcw } from 'lucide-react';
+import { getAvailableWeeks, getWeekLabel } from '../data/mockData';
+import { Save, Copy, Check, RotateCcw } from 'lucide-react';
 
 const CAT_DOT_COLORS = [
   'bg-amber-400', 'bg-sky-400', 'bg-blue-400', 'bg-rose-400',
@@ -19,53 +19,43 @@ export default function DataEntry() {
   const { state, saveWeek } = useApp();
   const { products, distributors, snapshots } = state;
 
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const availableWeeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
-  const latestWeek = useMemo(() => getLatestWeek(snapshots), [snapshots]);
-
-  // Generate next week (Monday after latest)
-  const nextWeek = useMemo(() => {
-    const d = new Date(latestWeek + 'T00:00:00');
-    d.setDate(d.getDate() + 7);
-    return d.toISOString().slice(0, 10);
-  }, [latestWeek]);
 
   const allWeeks = useMemo(() => {
     const ws = [...availableWeeks];
-    // Always include current/latest week so user can enter data for it
-    if (!ws.includes(latestWeek)) ws.push(latestWeek);
-    if (!ws.includes(nextWeek)) ws.push(nextWeek);
+    if (!ws.includes(today)) ws.push(today);
     return ws.sort();
-  }, [availableWeeks, latestWeek, nextWeek]);
+  }, [availableWeeks, today]);
 
-  const [selectedWeek, setSelectedWeek] = useState(latestWeek);
+  const [selectedWeek, setSelectedWeek] = useState(today);
   const [formData, setFormData] = useState<Record<string, number>>({});
   const [saved, setSaved] = useState(false);
   const [copying, setCopying] = useState(false);
 
-  // Load form data from snapshots when week changes
-  const loadWeek = useCallback((week: string) => {
+  // Load form data from snapshots for selected date
+  const loadWeek = useCallback((date: string) => {
     const data: Record<string, number> = {};
     for (const p of products) {
       for (const d of distributors) {
         const key = `${p.id}_${d.id}`;
         const sn = snapshots.find(
-          (s) => s.weekStart === week && s.productId === p.id && s.distributorId === d.id
+          (s) => s.weekStart === date && s.productId === p.id && s.distributorId === d.id
         );
-        data[key] = sn ? sn.quantity : -1; // -1 means not yet entered
+        data[key] = sn ? sn.quantity : -1;
       }
     }
     setFormData(data);
     setSaved(false);
   }, [products, distributors, snapshots]);
 
-  // Init form data for latest week
+  // Init form data for selected date
   useEffect(() => {
     loadWeek(selectedWeek);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedWeek]);
+  }, [selectedWeek, loadWeek]);
 
-  const handleWeekChange = (week: string) => {
-    setSelectedWeek(week);
+  const handleDateChange = (date: string) => {
+    setSelectedWeek(date);
   };
 
   const handleInput = (productId: string, distributorId: string, value: string) => {
@@ -135,7 +125,7 @@ export default function DataEntry() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">库存录入</h1>
-          <p className="text-sm text-gray-500 mt-0.5">每周盘点数据录入</p>
+          <p className="text-sm text-gray-500 mt-0.5">盘点日期: {selectedWeek} · 已录入 {enteredCount}/{totalCells} 项</p>
         </div>
         <div className="flex items-center gap-2">
           {saved && (
@@ -153,56 +143,37 @@ export default function DataEntry() {
         </div>
       </div>
 
-      {/* Week Selector */}
-      <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-3">
-        <button
-          onClick={() => weekIndex > 0 && handleWeekChange(allWeeks[weekIndex - 1])}
-          disabled={weekIndex <= 0}
-          className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
-        >
-          <ArrowLeft size={18} className="text-gray-600" />
-        </button>
-
-        <div className="flex gap-2 flex-wrap">
-          {allWeeks.map((w) => {
-            const hasData = availableWeeks.includes(w);
-            const isSelected = w === selectedWeek;
-            return (
-              <button
-                key={w}
-                onClick={() => handleWeekChange(w)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                  isSelected
-                    ? 'bg-starbucks-500 text-white shadow-sm'
-                    : hasData
-                    ? 'bg-white border border-gray-200 text-gray-700 hover:border-starbucks-300'
-                    : 'bg-white border border-dashed border-gray-300 text-gray-400 hover:border-starbucks-300'
-                }`}
-              >
-                {getWeekLabel(w)}
-                {!hasData && <span className="ml-1 text-[10px]">新增</span>}
-              </button>
-            );
-          })}
+      {/* Date Selector */}
+      <div className="flex items-center gap-3 bg-white rounded-xl border border-gray-200 p-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">盘点日期:</span>
+          <input
+            type="date"
+            value={selectedWeek}
+            onChange={(e) => handleDateChange(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 focus:outline-none focus:ring-2 focus:ring-starbucks-500/20"
+          />
+          <button onClick={() => handleDateChange(today)} className="px-2.5 py-1.5 text-xs font-medium text-starbucks-600 bg-starbucks-50 rounded-lg hover:bg-starbucks-100">今天</button>
+          <span className="text-[11px] text-gray-400">
+            {getWeekLabel(selectedWeek)}
+          </span>
         </div>
-
-        <button
-          onClick={() => weekIndex < allWeeks.length - 1 && handleWeekChange(allWeeks[weekIndex + 1])}
-          disabled={weekIndex >= allWeeks.length - 1}
-          className="p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-30 transition-colors"
-        >
-          <ArrowRight size={18} className="text-gray-600" />
-        </button>
+        <div className="flex-1" />
+        <div className="flex gap-1.5 flex-wrap">
+          {/* Quick-select: last 5 entered dates */}
+          {[...availableWeeks].reverse().slice(0, 5).map(w => (
+            <button key={w} onClick={() => handleDateChange(w)}
+              className={`px-2 py-1 rounded-md text-[11px] font-medium transition-all ${
+                w === selectedWeek ? 'bg-starbucks-500 text-white' : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}>
+              {w.slice(5)}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Toolbar */}
       <div className="flex items-center justify-between">
-        <div className="text-sm text-gray-500">
-          已录入 <span className="font-semibold text-gray-700">{enteredCount}</span> / {totalCells} 项
-          <span className="text-xs text-gray-400 ml-2">
-            ({products.length}产品 × {distributors.length}经销商)
-          </span>
-        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleCopyPrevWeek}
@@ -210,7 +181,7 @@ export default function DataEntry() {
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 transition-colors"
           >
             <Copy size={13} />
-            {copying ? '已复制' : '复制上周数据'}
+            {copying ? '已复制' : '复制上次数据'}
           </button>
           <button
             onClick={handleReset}
