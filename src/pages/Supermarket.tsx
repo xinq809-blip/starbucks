@@ -423,7 +423,7 @@ function FormBody({ modal, setModal, listings, setListings, promos, setPromos, r
   );
 }
 
-/* ==================== Listing Table ==================== */
+/* ==================== Listing Cards ==================== */
 function ListingTable({ items, setItems, search }: { items: NewProductListing[]; setItems: (d: NewProductListing[]) => void; search: string }) {
   const filtered = useMemo(() => {
     if (!search) return items;
@@ -441,71 +441,101 @@ function ListingTable({ items, setItems, search }: { items: NewProductListing[];
       actualDate: NEXT.listing[i.status] === 'listed' ? new Date().toISOString().slice(0, 10) : i.actualDate,
     } : i));
   };
+  const updateRemark = (id: string, remark: string) => {
+    setItems(items.map(i => i.id === id ? { ...i, remark } : i));
+  };
+
+  // Group by status for progress overview
+  const groups = useMemo(() => L_STATUS.map(s => ({
+    ...s, items: filtered.filter(i => i.status === s.key),
+  })), [filtered]);
 
   if (filtered.length === 0 && search) {
     return <div className="py-16 text-center text-gray-400 text-sm">没有找到匹配「{search}」的结果</div>;
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-gray-100 bg-gray-50/50">
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">产品名称</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">商超</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">状态</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">目标日期</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">实际上架</th>
-            <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">备注</th>
-            <th className="text-center px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider w-24">操作</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-50">
-          {filtered.map(i => {
-            const cfg = statusConfig(i.status, 'listing');
-            const s = storeById(i.supermarketId);
-            return (
-              <tr key={i.id} className="hover:bg-gray-50/30 transition-colors group">
-                <td className="px-5 py-3.5">
-                  <p className="font-medium text-gray-800">{i.productName}</p>
-                </td>
-                <td className="px-5 py-3.5">
-                  {s && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                      <span className="text-gray-600">{s.name}</span>
-                    </span>
-                  )}
-                </td>
-                <td className="px-5 py-3.5">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium"
-                    style={{ backgroundColor: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: cfg.color }} />
-                    {cfg.label}
-                  </span>
-                </td>
-                <td className="px-5 py-3.5 text-gray-500">{i.targetDate || '—'}</td>
-                <td className="px-5 py-3.5 text-gray-500">{i.actualDate || '—'}</td>
-                <td className="px-5 py-3.5 text-gray-400 text-xs max-w-[140px] truncate">{i.remark || '—'}</td>
-                <td className="px-5 py-3.5">
-                  <div className="flex items-center justify-center gap-1">
-                    {NEXT.listing[i.status] && (
-                      <button onClick={() => advance(i.id)}
-                        className="text-[11px] text-starbucks-600 hover:bg-starbucks-50 px-2 py-1 rounded-lg transition-colors opacity-0 group-hover:opacity-100 font-medium">
-                        推进
-                      </button>
-                    )}
-                    <button onClick={() => del(i.id)}
-                      className="p-1.5 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all">
-                      <Trash2 size={14} />
-                    </button>
+    <div>
+      {/* Progress stepper header */}
+      <div className="px-5 py-4 border-b border-gray-100 bg-gray-50/30">
+        <div className="flex items-center gap-2">
+          {L_STATUS.map((s, idx) => (
+            <div key={s.key} className="flex items-center gap-2">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${s.bg} border`} style={{ borderColor: s.border, color: s.color }}>
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: s.color, color: '#fff' }}>{groups[idx].items.length}</span>
+                {s.label}
+              </div>
+              {idx < L_STATUS.length - 1 && <div className="w-6 h-px bg-gray-200" />}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Card grid */}
+      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        {filtered.map(i => {
+          const cfg = statusConfig(i.status, 'listing');
+          const s = storeById(i.supermarketId);
+          const stepIdx = L_STATUS.findIndex(x => x.key === i.status);
+          return (
+            <div key={i.id} className="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow p-4 group">
+              {/* Header: SKU + Store */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-800 truncate">{i.productName}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {s && <span className="inline-flex items-center gap-1 text-[11px] text-gray-500"><span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: s.color }} />{s.name}</span>}
                   </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                </div>
+                <button onClick={() => del(i.id)} className="text-gray-300 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14} /></button>
+              </div>
+
+              {/* Progress stepper */}
+              <div className="flex items-center gap-1 mb-3">
+                {L_STATUS.map((st, idx) => (
+                  <div key={st.key} className="flex items-center gap-1 flex-1">
+                    <button
+                      onClick={() => idx <= stepIdx + 1 && idx > stepIdx ? advance(i.id) : null}
+                      className={`flex-1 h-1.5 rounded-full transition-all ${idx <= stepIdx ? '' : 'bg-gray-100'}`}
+                      style={idx <= stepIdx ? { backgroundColor: st.color } : {}}
+                      title={st.label}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-gray-400 mb-3">
+                <span>洽谈</span><span>通过</span><span>已上架</span>
+              </div>
+
+              {/* Dates */}
+              <div className="flex justify-between text-[11px] text-gray-500 mb-3">
+                <span>目标: {i.targetDate || '—'}</span>
+                <span>实际: {i.actualDate || '—'}</span>
+              </div>
+
+              {/* Remark */}
+              <div>
+                <textarea
+                  value={i.remark || ''}
+                  onChange={e => updateRemark(i.id, e.target.value)}
+                  placeholder="备注描述..."
+                  rows={2}
+                  className="w-full text-[11px] border border-gray-100 rounded-lg px-2 py-1.5 resize-none bg-gray-50 focus:outline-none focus:border-gray-300 focus:bg-white transition-colors"
+                />
+              </div>
+
+              {/* Quick advance */}
+              {NEXT.listing[i.status] && (
+                <button onClick={() => advance(i.id)}
+                  className="mt-2 w-full py-1.5 text-[11px] font-medium text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                  style={{ backgroundColor: cfg.color }}>
+                  推进到 {L_STATUS[stepIdx + 1]?.label}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
