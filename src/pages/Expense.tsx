@@ -16,6 +16,8 @@ export default function ExpensePage() {
   const [loaded, setLoaded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('2026-05');
   const [expandedCat, setExpandedCat] = useState<string | null>(null);
+  const [editingBudget, setEditingBudget] = useState<string | null>(null);
+  const [budgetInput, setBudgetInput] = useState('');
   const [modal, setModal] = useState<{ type: 'budget' | 'actual'; entry?: ExpenseRecord } | null>(null);
 
   useEffect(() => {
@@ -32,10 +34,22 @@ export default function ExpensePage() {
     return ms;
   }, []);
 
-  // Budget entries: location is empty string or missing
-  const budgetItems = useMemo(() => items.filter(i => i.month === selectedMonth && (!i.location || i.location === '')), [items, selectedMonth]);
+  // Dedup on load: keep only one budget entry per category per month
+  const deduped = useMemo(() => {
+    const seen = new Set<string>();
+    return items.filter(i => {
+      const key = `${i.month}|${i.category}|${i.location || '__budget__'}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [items]);
+  useEffect(() => { if (deduped.length !== items.length) setItems(deduped); }, [deduped]);
+
+  // Budget entries: location is empty string
+  const budgetItems = useMemo(() => deduped.filter(i => i.month === selectedMonth && (i.location === '' || i.location == null)), [deduped, selectedMonth]);
   // Actual entries: location has a value
-  const actualItems = useMemo(() => items.filter(i => i.month === selectedMonth && i.location && i.location !== ''), [items, selectedMonth]);
+  const actualItems = useMemo(() => deduped.filter(i => i.month === selectedMonth && i.location && i.location !== ''), [deduped, selectedMonth]);
 
   const monthData = useMemo(() => {
     return EXPENSE_CATEGORIES.map(cat => {
@@ -55,10 +69,10 @@ export default function ExpensePage() {
 
   // Year summary: aggregate all months
   const yearSummary = useMemo(() => {
-    const allM = [...new Set(items.map(i => i.month))].sort();
+    const allM = [...new Set(deduped.map(i => i.month))].sort();
     return allM.map(m => {
-      const mItems = items.filter(i => i.month === m);
-      const budgets = mItems.filter(i => (!i.location || i.location === ''));
+      const mItems = deduped.filter(i => i.month === m);
+      const budgets = mItems.filter(i => i.location === '' || i.location == null);
       const actuals = mItems.filter(i => i.location && i.location !== '');
       const proj = budgets.reduce((s, i) => s + (i.projected || 0), 0);
       const act = actuals.reduce((s, i) => s + (i.actual || 0), 0);
@@ -67,44 +81,58 @@ export default function ExpensePage() {
   }, [items]);
 
   const saveBudget = (cat: string, projected: number) => {
-    const existing = budgetItems.find(i => i.category === cat);
-    if (projected <= 0 && existing) {
-      setItems(items.filter(i => i.id !== existing.id));
+    setEditingBudget(null);
+    const existing = deduped.find(i => i.month === selectedMonth && i.category === cat && (i.location === '' || i.location == null));
+    if (projected <= 0) {
+      if (existing) setItems(deduped.filter(i => i.id !== existing.id));
     } else if (existing) {
-      setItems(items.map(i => i.id === existing.id ? { ...i, projected } : i));
-    } else if (projected > 0) {
-      setItems([...items, { id: genId(), month: selectedMonth, category: cat, location: '', projected, actual: 0, remark: '' }]);
+      setItems(deduped.map(i => i.id === existing.id ? { ...i, projected } : i));
+    } else {
+      setItems([...deduped, { id: genId(), month: selectedMonth, category: cat, location: '', projected, actual: 0, remark: '' }]);
     }
   };
 
+  const startEditBudget = (cat: string, current: number) => {
+    setEditingBudget(cat);
+    setBudgetInput(String(current || ''));
+  };
+
   const saveActual = (data: ExpenseRecord) => {
-    if (items.find(i => i.id === data.id)) {
-      setItems(items.map(i => i.id === data.id ? data : i));
+    if (deduped.find(i => i.id === data.id)) {
+      setItems(deduped.map(i => i.id === data.id ? { ...data, location: data.location || '' } : i));
     } else {
-      setItems([...items, data]);
+      setItems([...deduped, { ...data, location: data.location || '' }]);
     }
     setModal(null);
   };
 
-  const delItem = (id: string) => setItems(items.filter(i => i.id !== id));
+  const delItem = (id: string) => setItems(deduped.filter(i => i.id !== id));
 
   const copyPrevMonth = () => {
     const idx = allMonths.indexOf(selectedMonth);
     if (idx <= 0) return;
     const prevMonth = allMonths[idx - 1];
-    const prevItems = items.filter(i => i.month === prevMonth);
-    const newItems = [...items];
+    const prevItems = deduped.filter(i => i.month === prevMonth);
+    const newItems = [...deduped];
     let copied = 0;
     for (const pi of prevItems) {
-      const a = pi.location || '';
-      const exists = newItems.find(i => i.month === selectedMonth && i.category === pi.category && (i.location || '') === a);
+      const loc = pi.location || '';
+      const exists = newItems.find(i => i.month === selectedMonth && i.category === pi.category && (i.location || '') === loc);
       if (!exists) {
-        newItems.push({ ...pi, id: genId(), month: selectedMonth, location: pi.location || '' });
+        newItems.push({ ...pi, id: genId(), month: selectedMonth, location: loc });
         copied++;
       }
     }
     setItems(newItems);
     alert(`已从${getMonthLabel(prevMonth)}复制 ${copied} 条记录`);
+  };
+
+  const clearMonth = () => {
+    const count = deduped.filter(i => i.month === selectedMonth).length;
+    if (count === 0) return;
+    if (confirm(`删除${getMonthLabel(selectedMonth)}全部${count}条费用数据？`)) {
+      setItems(deduped.filter(i => i.month !== selectedMonth));
+    }
   };
 
   return (
@@ -127,13 +155,7 @@ export default function ExpensePage() {
               className="px-4 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
               延用上月数据
             </button>
-            <button onClick={() => {
-              const monthItems = items.filter(i => i.month === selectedMonth);
-              if (monthItems.length === 0) return;
-              if (confirm(`删除${getMonthLabel(selectedMonth)}全部${monthItems.length}条费用数据？`)) {
-                setItems(items.filter(i => i.month !== selectedMonth));
-              }
-            }}
+            <button onClick={clearMonth}
               className="px-3 py-2 text-xs font-medium text-red-400 bg-white border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
               清空本月
             </button>
@@ -209,11 +231,19 @@ export default function ExpensePage() {
                           {actuals.length > 0 && <span className="text-[10px] text-gray-400">({actuals.length} 笔)</span>}
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <span onClick={e => { e.stopPropagation(); const v = projected || 0; const n = parseInt(prompt('预提费用:', String(v)) || '') || 0; saveBudget(cat.key, n); }}
-                          className={`font-bold cursor-pointer hover:underline ${projected > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
-                          {projected > 0 ? format(projected) : '点击设置'}
-                        </span>
+                      <td className="px-5 py-3.5 text-right" onClick={e => e.stopPropagation()}>
+                        {editingBudget === cat.key ? (
+                          <input type="number" min="0" value={budgetInput} autoFocus
+                            onChange={e => setBudgetInput(e.target.value)}
+                            onBlur={() => saveBudget(cat.key, parseInt(budgetInput) || 0)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveBudget(cat.key, parseInt(budgetInput) || 0); if (e.key === 'Escape') setEditingBudget(null); }}
+                            className="w-24 text-right border border-gray-300 rounded-lg px-2 py-1 text-xs font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                        ) : (
+                          <span onClick={() => startEditBudget(cat.key, projected)}
+                            className={`font-bold cursor-pointer hover:underline ${projected > 0 ? 'text-blue-600' : 'text-gray-300'}`}>
+                            {projected > 0 ? format(projected) : '点击设置'}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <span className={`font-bold ${totalActual > 0 ? 'text-red-600' : 'text-gray-300'}`}>
