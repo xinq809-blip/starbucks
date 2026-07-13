@@ -9,7 +9,7 @@ function genId() { return 'E' + Date.now().toString(36); }
 function getMonthLabel(m: string) { return m.replace('-', '年') + '月'; }
 
 export default function ExpensePage() {
-  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentMonth = '2026-05';
   const [items, setItems] = useState<ExpenseRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -29,11 +29,19 @@ export default function ExpensePage() {
     if (loaded) supabase.from('expenses').upsert(items.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
   }, [items, loaded]);
 
-  const months = useMemo(() => {
-    const ms = [...new Set(items.map(i => i.month))].sort();
-    if (!ms.includes(selectedMonth)) ms.push(selectedMonth);
+  // Generate months from May 2026 to current
+  const allMonths = useMemo(() => {
+    const ms: string[] = [];
+    for (let y = 2026; y <= 2026; y++) {
+      for (let m = 5; m <= 12; m++) {
+        ms.push(`${y}-${String(m).padStart(2, '0')}`);
+      }
+    }
+    // Also include months from existing data
+    const existing = [...new Set(items.map(i => i.month))];
+    existing.forEach(m => { if (!ms.includes(m)) ms.push(m); });
     return ms.sort();
-  }, [items, selectedMonth]);
+  }, [items]);
 
   const monthData = useMemo(() => {
     return EXPENSE_CATEGORIES.map(cat => {
@@ -86,7 +94,7 @@ export default function ExpensePage() {
           <div className="flex items-center gap-3">
             <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
               className="border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-gray-200">
-              {months.map(m => <option key={m} value={m}>{getMonthLabel(m)}</option>)}
+              {allMonths.map(m => <option key={m} value={m}>{getMonthLabel(m)}</option>)}
             </select>
             <button onClick={() => setAdding(true)}
               className="flex items-center gap-1.5 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-lg shadow-gray-200 transition-all">
