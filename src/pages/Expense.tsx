@@ -5,8 +5,15 @@ import type { ExpenseRecord } from '../types/expense';
 import { EXPENSE_CATEGORIES } from '../types/expense';
 
 function genId() { return 'E' + Date.now().toString(36); }
-
 function getMonthLabel(m: string) { return m.replace('-', '年') + '月'; }
+
+function loadLocations(): string[] {
+  try {
+    const r = localStorage.getItem('sb_distributors_v2');
+    if (r) return (JSON.parse(r) as any[]).map((d: any) => d.name);
+  } catch {}
+  return ['山海关梁波', '杨子', '速恩', '北戴河王总'];
+}
 
 export default function ExpensePage() {
   const currentMonth = '2026-05';
@@ -159,12 +166,13 @@ export default function ExpensePage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50/30 border-b border-gray-100">
-                  <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">费用类别</th>
-                  <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">预提费用</th>
-                  <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">实际支出</th>
-                  <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">结余</th>
-                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">备注</th>
-                  <th className="text-center px-3 py-3 w-16"></th>
+                  <th className="text-left px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">费用类别</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">归属门店</th>
+                  <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">预提费用</th>
+                  <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">实际支出</th>
+                  <th className="text-right px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">结余</th>
+                  <th className="text-left px-4 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">备注</th>
+                  <th className="text-center px-2 py-3 w-12"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
@@ -173,13 +181,14 @@ export default function ExpensePage() {
                   const hasData = !!entry;
                   return (
                     <tr key={cat.key} className={`hover:bg-gray-50/30 transition-colors ${!hasData ? 'opacity-40' : ''}`}
-                      onClick={() => { setModal(entry || { id: genId(), month: selectedMonth, category: cat.key, projected: 0, actual: 0, remark: '' }); }}>
-                      <td className="px-6 py-3.5">
+                      onClick={() => { setModal(entry || { id: genId(), month: selectedMonth, category: cat.key, location: '', projected: 0, actual: 0, remark: '' }); }}>
+                      <td className="px-5 py-3.5">
                         <div className="flex items-center gap-2">
                           <span className="text-base">{cat.icon}</span>
                           <span className="text-xs font-semibold text-gray-800">{cat.label}</span>
                         </div>
                       </td>
+                      <td className="px-4 py-3.5 text-xs text-gray-600">{entry?.location || <span className="text-gray-300">—</span>}</td>
                       <td className="px-5 py-3.5 text-right text-xs">
                         <span className={`font-bold ${entry?.projected ? 'text-blue-600' : 'text-gray-300'}`}>
                           {entry?.projected ? format(entry.projected) : '—'}
@@ -223,6 +232,47 @@ export default function ExpensePage() {
             </table>
           </div>
         </div>
+
+        {/* Per-location breakdown */}
+        {(() => {
+          const locations = [...new Set(items.filter(i => i.month === selectedMonth).map(i => i.location).filter(Boolean))] as string[];
+          if (locations.length === 0) return null;
+          const locData = locations.map(loc => {
+            const locItems = items.filter(i => i.month === selectedMonth && i.location === loc);
+            const proj = locItems.reduce((s, i) => s + (i.projected || 0), 0);
+            const act = locItems.reduce((s, i) => s + (i.actual || 0), 0);
+            return { loc, proj, act, bal: proj - act };
+          }).sort((a, b) => b.proj - a.proj);
+          return (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-50">
+                <h2 className="text-sm font-bold text-gray-700">{getMonthLabel(selectedMonth)} 各门店费用分布</h2>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50/30 border-b border-gray-100">
+                      <th className="text-left px-6 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">门店</th>
+                      <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">预提费用</th>
+                      <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">实际支出</th>
+                      <th className="text-right px-5 py-3 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">结余</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {locData.map(d => (
+                      <tr key={d.loc}>
+                        <td className="px-6 py-3 text-xs font-medium text-gray-800">{d.loc}</td>
+                        <td className="px-5 py-3 text-right text-xs font-bold text-blue-600">{format(d.proj)}</td>
+                        <td className="px-5 py-3 text-right text-xs font-bold text-red-600">{format(d.act)}</td>
+                        <td className="px-5 py-3 text-right text-xs font-bold" style={{ color: d.bal >= 0 ? '#059669' : '#ef4444' }}>{format(d.bal)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Year Summary */}
         {yearSummary.length > 0 && (
@@ -276,7 +326,7 @@ export default function ExpensePage() {
                 <button onClick={() => { setModal(null); setAdding(false); }} className="p-1.5 rounded-full hover:bg-gray-200"><X size={16} className="text-gray-400" /></button>
               </div>
               <ExpenseForm
-                initial={modal || { id: genId(), month: selectedMonth, category: 'display', projected: 0, actual: 0, remark: '' }}
+                initial={modal || { id: genId(), month: selectedMonth, category: 'display', location: '', projected: 0, actual: 0, remark: '' }}
                 onSave={saveEntry}
                 onCancel={() => { setModal(null); setAdding(false); }}
               />
@@ -305,6 +355,29 @@ function ExpenseForm({ initial, onSave, onCancel }: { initial: ExpenseRecord; on
           <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={cls}>
             {EXPENSE_CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
           </select>
+        </div>
+      </div>
+      <div>
+        <label className={lbl}>归属门店</label>
+        <div className="flex gap-2">
+          <input
+            value={form.location || ''}
+            onChange={e => setForm({ ...form, location: e.target.value })}
+            placeholder="输入门店名称"
+            className={cls}
+            list="loc-list"
+          />
+          <datalist id="loc-list">
+            {loadLocations().map(l => <option key={l} value={l} />)}
+          </datalist>
+        </div>
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {loadLocations().map(l => (
+            <button key={l} onClick={() => setForm({ ...form, location: l })}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${form.location === l ? 'bg-starbucks-500 text-white border-starbucks-500' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>
+              {l}
+            </button>
+          ))}
         </div>
       </div>
       <div className="grid grid-cols-2 gap-4">

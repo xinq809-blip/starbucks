@@ -1,9 +1,10 @@
 export interface ExpenseRecord {
   id: string;
-  month: string;       // "2026-07"
-  category: string;    // display | promotion | salary | project | commitment | other
-  projected: number;   // 预提费用
-  actual: number;      // 实际支出
+  month: string;
+  category: string;
+  location: string;    // 费用归属门店/经销商
+  projected: number;
+  actual: number;
   remark: string;
 }
 
