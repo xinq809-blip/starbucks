@@ -87,6 +87,10 @@ export default function ExpensePage() {
   };
 
   const delActual = (id: string) => flushActuals(actuals.filter(i => i.id !== id));
+  const editActual = (id: string, updates: Partial<ActualItem>) => flushActuals(actuals.map(i => i.id === id ? { ...i, ...updates } : i));
+
+  const [editActualId, setEditActualId] = useState<string | null>(null);
+  const [editActualVal, setEditActualVal] = useState('');
 
   const copyPrev = () => {
     const idx = ALL_MONTHS.indexOf(month);
@@ -238,9 +242,22 @@ export default function ExpensePage() {
                     </tr>
                     {expand === cat.key && catActuals.map(a => (
                       <tr key={a.id} className="bg-gray-50/30">
-                        <td className="px-12 py-2.5 text-xs text-gray-500">● {a.location} {a.remark ? `· ${a.remark}` : ''}</td>
+                        <td className="px-12 py-2.5 text-xs text-gray-500" onClick={e => e.stopPropagation()}>
+                          ● {a.location} {a.remark ? `· ${a.remark}` : ''}
+                        </td>
                         <td></td>
-                        <td className="px-5 py-2.5 text-right text-xs font-bold text-red-500">{fmt(a.amount)}</td>
+                        <td className="px-5 py-2.5 text-right" onClick={e => e.stopPropagation()}>
+                          {editActualId === a.id ? (
+                            <input type="number" min="0" value={editActualVal} autoFocus
+                              onChange={e => setEditActualVal(e.target.value)}
+                              onBlur={() => { editActual(a.id, { amount: parseInt(editActualVal) || 0 }); setEditActualId(null); }}
+                              onKeyDown={e => { if (e.key === 'Enter') { editActual(a.id, { amount: parseInt(editActualVal) || 0 }); setEditActualId(null); } if (e.key === 'Escape') setEditActualId(null); }}
+                              className="w-24 text-right border border-gray-300 rounded-lg px-2 py-1 text-xs font-bold text-red-500 focus:outline-none focus:ring-2 focus:ring-red-200" />
+                          ) : (
+                            <span onClick={() => { setEditActualId(a.id); setEditActualVal(String(a.amount)); }}
+                              className="font-bold text-red-500 cursor-pointer hover:underline text-xs">{fmt(a.amount)}</span>
+                          )}
+                        </td>
                         <td></td>
                         <td className="px-3 py-2.5 text-center"><button onClick={() => delActual(a.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
                       </tr>
