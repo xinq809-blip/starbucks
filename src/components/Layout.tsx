@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, PencilLine, History, Package, Coffee, Menu, X, Store, Dumbbell, Users } from 'lucide-react';
+import { LayoutDashboard, PencilLine, History, Package, Coffee, Menu, X, Store, Dumbbell, Users, DollarSign } from 'lucide-react';
 
 const navGroups = [
   {
@@ -16,6 +16,12 @@ const navGroups = [
     label: '经销商',
     items: [
       { to: '/distributors', icon: Users, label: '经销商管理', end: false },
+    ],
+  },
+  {
+    label: '财务',
+    items: [
+      { to: '/expense', icon: DollarSign, label: '费用管理', end: false },
     ],
   },
   {
