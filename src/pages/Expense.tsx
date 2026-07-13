@@ -32,9 +32,10 @@ export default function ExpensePage() {
     return ms;
   }, []);
 
-  // Budget entries (no location) and actual entries (with location)
-  const budgetItems = useMemo(() => items.filter(i => i.month === selectedMonth && !i.location), [items, selectedMonth]);
-  const actualItems = useMemo(() => items.filter(i => i.month === selectedMonth && i.location), [items, selectedMonth]);
+  // Budget entries: location is empty string or missing
+  const budgetItems = useMemo(() => items.filter(i => i.month === selectedMonth && (!i.location || i.location === '')), [items, selectedMonth]);
+  // Actual entries: location has a value
+  const actualItems = useMemo(() => items.filter(i => i.month === selectedMonth && i.location && i.location !== ''), [items, selectedMonth]);
 
   const monthData = useMemo(() => {
     return EXPENSE_CATEGORIES.map(cat => {
@@ -57,8 +58,8 @@ export default function ExpensePage() {
     const allM = [...new Set(items.map(i => i.month))].sort();
     return allM.map(m => {
       const mItems = items.filter(i => i.month === m);
-      const budgets = mItems.filter(i => !i.location);
-      const actuals = mItems.filter(i => i.location);
+      const budgets = mItems.filter(i => (!i.location || i.location === ''));
+      const actuals = mItems.filter(i => i.location && i.location !== '');
       const proj = budgets.reduce((s, i) => s + (i.projected || 0), 0);
       const act = actuals.reduce((s, i) => s + (i.actual || 0), 0);
       return { month: m, projected: proj, actual: act, balance: proj - act };
@@ -95,9 +96,10 @@ export default function ExpensePage() {
     const newItems = [...items];
     let copied = 0;
     for (const pi of prevItems) {
-      const exists = newItems.find(i => i.month === selectedMonth && i.category === pi.category && (i.location || '') === (pi.location || ''));
+      const a = pi.location || '';
+      const exists = newItems.find(i => i.month === selectedMonth && i.category === pi.category && (i.location || '') === a);
       if (!exists) {
-        newItems.push({ ...pi, id: genId(), month: selectedMonth });
+        newItems.push({ ...pi, id: genId(), month: selectedMonth, location: pi.location || '' });
         copied++;
       }
     }
