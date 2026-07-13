@@ -2,9 +2,9 @@ export interface ExpenseRecord {
   id: string;
   month: string;
   category: string;
-  location: string;    // 费用归属门店/经销商
-  projected: number;
-  actual: number;
+  type: 'budget' | 'actual';   // budget=预提费用, actual=实际支出
+  location: string;
+  amount: number;               // 金额(预提或支出)
   remark: string;
 }
 
