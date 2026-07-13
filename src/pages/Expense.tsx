@@ -86,6 +86,21 @@ export default function ExpensePage() {
 
   const delItem = (id: string) => setItems(items.filter(i => i.id !== id));
 
+  const copyPrevMonth = () => {
+    const idx = allMonths.indexOf(selectedMonth);
+    if (idx <= 0) return;
+    const prevMonth = allMonths[idx - 1];
+    const prevBudgets = items.filter(i => i.month === prevMonth && !i.location);
+    const newItems = [...items];
+    for (const pb of prevBudgets) {
+      const exists = newItems.find(i => i.month === selectedMonth && i.category === pb.category && !i.location);
+      if (!exists && pb.projected > 0) {
+        newItems.push({ id: genId(), month: selectedMonth, category: pb.category, location: '', projected: pb.projected, actual: 0, remark: pb.remark });
+      }
+    }
+    setItems(newItems);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
       <div className="p-4 md:p-6 space-y-6 max-w-6xl mx-auto">
@@ -101,6 +116,11 @@ export default function ExpensePage() {
               className="border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-gray-200">
               {allMonths.map(m => <option key={m} value={m}>{getMonthLabel(m)}</option>)}
             </select>
+            <button onClick={copyPrevMonth}
+              disabled={allMonths.indexOf(selectedMonth) <= 0}
+              className="px-4 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+              延用上月预提
+            </button>
             <button onClick={() => setModal({ type: 'actual' })}
               className="flex items-center gap-1.5 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-lg shadow-gray-200 transition-all">
               <Plus size={16} />新增支出
