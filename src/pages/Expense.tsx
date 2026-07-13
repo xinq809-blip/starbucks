@@ -1,18 +1,17 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2, X, DollarSign, TrendingDown, Wallet, ChevronDown, ChevronRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useApp } from '../context/AppContext';
 import type { ExpenseRecord } from '../types/expense';
 import { EXPENSE_CATEGORIES } from '../types/expense';
 
 function genId() { return 'E' + Date.now().toString(36); }
 function getMonthLabel(m: string) { return m.replace('-', '年') + '月'; }
-function loadLocations(): string[] {
-  try { const r = localStorage.getItem('sb_distributors_v2'); if (r) return (JSON.parse(r) as any[]).map((d: any) => d.name); } catch {}
-  return ['山海关梁波', '杨子', '速恩', '北戴河王总'];
-}
 function format(n: number) { return '¥' + n.toLocaleString('zh-CN', { minimumFractionDigits: 0 }); }
 
 export default function ExpensePage() {
+  const { state: { distributors } } = useApp();
+  const distNames = useMemo(() => distributors.map(d => d.name), [distributors]);
   const [items, setItems] = useState<ExpenseRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('2026-05');
@@ -295,7 +294,7 @@ export default function ExpensePage() {
                 <h3 className="text-sm font-semibold text-gray-800">新增支出记录</h3>
                 <button onClick={() => setModal(null)} className="p-1.5 rounded-full hover:bg-gray-200"><X size={16} className="text-gray-400" /></button>
               </div>
-              <ActualForm initial={modal.entry!} onSave={saveActual} onCancel={() => setModal(null)} />
+              <ActualForm initial={modal.entry!} onSave={saveActual} onCancel={() => setModal(null)} distNames={distNames} />
             </div>
           </div>
         )}
@@ -304,7 +303,7 @@ export default function ExpensePage() {
   );
 }
 
-function ActualForm({ initial, onSave, onCancel }: { initial: ExpenseRecord; onSave: (d: ExpenseRecord) => void; onCancel: () => void }) {
+function ActualForm({ initial, onSave, onCancel, distNames }: { initial: ExpenseRecord; onSave: (d: ExpenseRecord) => void; onCancel: () => void; distNames: string[] }) {
   const [form, setForm] = useState(initial);
   const cls = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:bg-white focus:border-gray-400 transition-all";
   const lbl = "text-[11px] text-gray-400 mb-1 block font-medium";
@@ -318,9 +317,9 @@ function ActualForm({ initial, onSave, onCancel }: { initial: ExpenseRecord; onS
       <div>
         <label className={lbl}>归属门店 *</label>
         <input value={form.location || ''} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="输入门店名称" className={cls} list="loc-list" />
-        <datalist id="loc-list">{loadLocations().map(l => <option key={l} value={l} />)}</datalist>
+        <datalist id="loc-list">{distNames.map(l => <option key={l} value={l} />)}</datalist>
         <div className="flex flex-wrap gap-1 mt-1.5">
-          {loadLocations().map(l => (
+          {distNames.map(l => (
             <button key={l} onClick={() => setForm({ ...form, location: l })}
               className={`text-[10px] px-2 py-0.5 rounded-full border ${form.location === l ? 'bg-starbucks-500 text-white border-starbucks-500' : 'bg-gray-50 text-gray-500 border-gray-200 hover:border-gray-400'}`}>{l}</button>
           ))}
