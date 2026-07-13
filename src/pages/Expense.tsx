@@ -67,10 +67,11 @@ export default function ExpensePage() {
 
   const saveBudget = (cat: string, projected: number) => {
     const existing = budgetItems.find(i => i.category === cat);
-    if (projected === 0 && !existing) return;
-    if (existing) {
+    if (projected <= 0 && existing) {
+      setItems(items.filter(i => i.id !== existing.id));
+    } else if (existing) {
       setItems(items.map(i => i.id === existing.id ? { ...i, projected } : i));
-    } else {
+    } else if (projected > 0) {
       setItems([...items, { id: genId(), month: selectedMonth, category: cat, location: '', projected, actual: 0, remark: '' }]);
     }
   };
@@ -122,7 +123,17 @@ export default function ExpensePage() {
             <button onClick={copyPrevMonth}
               disabled={allMonths.indexOf(selectedMonth) <= 0}
               className="px-4 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-              延用上月预提
+              延用上月数据
+            </button>
+            <button onClick={() => {
+              const monthItems = items.filter(i => i.month === selectedMonth);
+              if (monthItems.length === 0) return;
+              if (confirm(`删除${getMonthLabel(selectedMonth)}全部${monthItems.length}条费用数据？`)) {
+                setItems(items.filter(i => i.month !== selectedMonth));
+              }
+            }}
+              className="px-3 py-2 text-xs font-medium text-red-400 bg-white border border-red-200 rounded-xl hover:bg-red-50 transition-colors">
+              清空本月
             </button>
             <button onClick={() => setModal({ type: 'actual' })}
               className="flex items-center gap-1.5 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-lg shadow-gray-200 transition-all">
