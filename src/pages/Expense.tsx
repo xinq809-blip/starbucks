@@ -90,15 +90,18 @@ export default function ExpensePage() {
     const idx = allMonths.indexOf(selectedMonth);
     if (idx <= 0) return;
     const prevMonth = allMonths[idx - 1];
-    const prevBudgets = items.filter(i => i.month === prevMonth && !i.location);
+    const prevItems = items.filter(i => i.month === prevMonth);
     const newItems = [...items];
-    for (const pb of prevBudgets) {
-      const exists = newItems.find(i => i.month === selectedMonth && i.category === pb.category && !i.location);
-      if (!exists && pb.projected > 0) {
-        newItems.push({ id: genId(), month: selectedMonth, category: pb.category, location: '', projected: pb.projected, actual: 0, remark: pb.remark });
+    let copied = 0;
+    for (const pi of prevItems) {
+      const exists = newItems.find(i => i.month === selectedMonth && i.category === pi.category && (i.location || '') === (pi.location || ''));
+      if (!exists) {
+        newItems.push({ ...pi, id: genId(), month: selectedMonth });
+        copied++;
       }
     }
     setItems(newItems);
+    alert(`已从${getMonthLabel(prevMonth)}复制 ${copied} 条记录`);
   };
 
   return (
