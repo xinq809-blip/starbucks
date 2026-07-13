@@ -103,6 +103,34 @@ export default function ExpensePage() {
           </div>
         </div>
 
+        {/* YTD Summary */}
+        {(() => {
+          const ytd = yearSummary.filter(m => m.month >= '2026-05' && m.month <= (selectedMonth));
+          const ytdProj = ytd.reduce((s, m) => s + m.projected, 0);
+          const ytdAct = ytd.reduce((s, m) => s + m.actual, 0);
+          const ytdBal = ytdProj - ytdAct;
+          return (
+            <div className="bg-gradient-to-r from-gray-900 to-gray-800 rounded-2xl shadow-lg p-6 text-white">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">5月 - {getMonthLabel(selectedMonth)} 累计汇总</p>
+              <div className="grid grid-cols-3 gap-8">
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">累计预提</p>
+                  <p className="text-2xl font-bold text-blue-400">{format(ytdProj)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">累计实际支出</p>
+                  <p className="text-2xl font-bold text-red-400">{format(ytdAct)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400 mb-1">累计结余</p>
+                  <p className={`text-2xl font-bold ${ytdBal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{format(ytdBal)}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">支出率 {ytdProj > 0 ? Math.round((ytdAct / ytdProj) * 100) : 0}%</p>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
