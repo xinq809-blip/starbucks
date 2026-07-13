@@ -86,7 +86,10 @@ export default function ExpensePage() {
     setModal(false);
   };
 
-  const delActual = (id: string) => flushActuals(actuals.filter(i => i.id !== id));
+  const delActual = (id: string) => {
+    setActuals(prev => prev.filter(i => i.id !== id));
+    if (loaded) supabase.from('expenses').delete().eq('id', id).then(() => {});
+  };
   const editActual = (id: string, updates: Partial<ActualItem>) => flushActuals(actuals.map(i => i.id === id ? { ...i, ...updates } : i));
 
   const [editActualId, setEditActualId] = useState<string | null>(null);
@@ -119,11 +122,15 @@ export default function ExpensePage() {
 
   const clearMonth = () => {
     const hasB = budgets[month] && Object.keys(budgets[month]).length > 0;
-    const hasA = actuals.filter(i => i.month === month).length > 0;
-    if (!hasB && !hasA) return;
+    const monthActualIds = actuals.filter(i => i.month === month).map(i => i.id);
+    if (!hasB && monthActualIds.length === 0) return;
     if (confirm(`删除${ml(month)}全部费用数据？`)) {
       const b = { ...budgets }; delete b[month]; saveBudgets(b);
-      flushActuals(actuals.filter(i => i.month !== month));
+      setActuals(prev => prev.filter(i => i.month !== month));
+      if (loaded) {
+        const ids = monthActualIds.join(',');
+        if (ids) supabase.from('expenses').delete().in('id', monthActualIds).then(() => {});
+      }
     }
   };
 
