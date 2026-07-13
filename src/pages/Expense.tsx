@@ -46,14 +46,16 @@ export default function ExpensePage() {
   }, [items]);
   useEffect(() => { if (deduped.length !== items.length) setItems(deduped); }, [deduped]);
 
-  // Save
-  const flush = (data: ExpenseRecord[]) => {
-    setItems(data);
-    if (loaded) {
-      // Clean old format before saving
-      const clean = data.map(({ projected, actual, ...rest }: any) => rest);
-      supabase.from('expenses').upsert(clean.map((d: any) => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
-    }
+  // Save with callback to ensure fresh state
+  const flush = (updater: (prev: ExpenseRecord[]) => ExpenseRecord[]) => {
+    setItems(prev => {
+      const next = updater(prev);
+      if (loaded) {
+        const clean = next.map(({ projected, actual, ...rest }: any) => rest);
+        supabase.from('expenses').upsert(clean.map((d: any) => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
+      }
+      return next;
+    });
   };
 
   const allMonths = useMemo(() => {
@@ -98,48 +100,50 @@ export default function ExpensePage() {
 
   const saveBudget = (cat: string, amount: number) => {
     setEditingBudget(null);
-    const existing = budgets.find(i => i.category === cat);
     if (amount <= 0) {
-      if (existing) flush(deduped.filter(i => i.id !== existing.id));
-    } else if (existing) {
-      flush(deduped.map(i => i.id === existing.id ? { ...i, amount } : i));
+      flush(prev => prev.filter(i => !(i.month === selectedMonth && i.category === cat && i.type === 'budget')));
     } else {
-      flush([...deduped, { id: genId(), month: selectedMonth, category: cat, type: 'budget', location: '', amount, remark: '' }]);
+      flush(prev => {
+        const ex = prev.find(i => i.month === selectedMonth && i.category === cat && i.type === 'budget');
+        if (ex) return prev.map(i => i.id === ex.id ? { ...i, amount } : i);
+        return [...prev, { id: genId(), month: selectedMonth, category: cat, type: 'budget', location: '', amount, remark: '' }];
+      });
     }
   };
 
   const saveActual = (data: ExpenseRecord) => {
-    if (deduped.find(i => i.id === data.id)) {
-      flush(deduped.map(i => i.id === data.id ? data : i));
-    } else {
-      flush([...deduped, data]);
-    }
+    flush(prev => prev.find(i => i.id === data.id) ? prev.map(i => i.id === data.id ? data : i) : [...prev, data]);
     setModal(false);
   };
 
-  const delItem = (id: string) => flush(deduped.filter(i => i.id !== id));
+  const delItem = (id: string) => flush(prev => prev.filter(i => i.id !== id));
 
   const copyPrevMonth = () => {
     const idx = allMonths.indexOf(selectedMonth);
     if (idx <= 0) return;
     const prevMonth = allMonths[idx - 1];
-    const prev = deduped.filter(i => i.month === prevMonth);
-    const cur = [...deduped];
-    let n = 0;
-    for (const p of prev) {
-      const exists = cur.find(i => i.month === selectedMonth && i.category === p.category && i.type === p.type && (i.location || '') === (p.location || ''));
-      if (!exists) { cur.push({ ...p, id: genId(), month: selectedMonth }); n++; }
-    }
-    flush(cur);
-    if (n > 0) alert(`已从${getMonthLabel(prevMonth)}复制 ${n} 条记录`);
+    flush(prev => {
+      const prevItems = prev.filter(i => i.month === prevMonth);
+      const cur = [...prev];
+      let n = 0;
+      for (const p of prevItems) {
+        const exists = cur.find(i => i.month === selectedMonth && i.category === p.category && i.type === p.type && (i.location || '') === (p.location || ''));
+        if (!exists) { cur.push({ ...p, id: genId(), month: selectedMonth }); n++; }
+      }
+      if (n > 0) alert(`已从${getMonthLabel(prevMonth)}复制 ${n} 条记录`);
+      return cur;
+    });
   };
 
   const clearMonth = () => {
-    const n = deduped.filter(i => i.month === selectedMonth).length;
-    if (n === 0) return;
-    if (confirm(`删除${getMonthLabel(selectedMonth)}全部${n}条费用数据？`)) {
-      flush(deduped.filter(i => i.month !== selectedMonth));
-    }
+    flush(prev => {
+      const n = prev.filter(i => i.month === selectedMonth).length;
+      if (n === 0) return prev;
+      if (confirm(`删除${getMonthLabel(selectedMonth)}全部${n}条费用数据？`)) {
+        return prev.filter(i => i.month !== selectedMonth);
+      }
+      return prev;
+    });
   };
 
   return (
