@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { getAvailableWeeks, getWeekLabel } from '../data/mockData';
-import { Save, Copy, Check, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, Copy, Check, Search, ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 
 export default function DataEntry() {
-  const { state, saveWeek } = useApp();
-  const { products, distributors, snapshots } = state;
+  const { state, saveWeek, addRestock, deleteRestock } = useApp();
+  const { products, distributors, snapshots, restocks } = state;
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const availableWeeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
 
@@ -249,6 +249,100 @@ export default function DataEntry() {
           })}
         </div>
       </div>
+
+      {/* Restock / Purchase Entry */}
+      <RestockSection
+        selectedDate={selectedDate}
+        products={products}
+        distributors={distributors}
+        restocks={restocks}
+        addRestock={addRestock}
+        deleteRestock={deleteRestock}
+      />
+    </div>
+  );
+}
+
+function RestockSection({ selectedDate, products, distributors, restocks, addRestock, deleteRestock }: any) {
+  const [prodId, setProdId] = useState(products[0]?.id || '');
+  const [distId, setDistId] = useState(distributors[0]?.id || '');
+  const [qty, setQty] = useState('');
+
+  const weekRestocks = restocks.filter((r: any) => r.weekStart === selectedDate);
+
+  const handleAdd = () => {
+    const n = parseInt(qty);
+    if (!n || n <= 0) return;
+    addRestock({
+      id: 'R' + Date.now(),
+      date: selectedDate,
+      productId: prodId,
+      distributorId: distId,
+      quantity: n,
+      weekStart: selectedDate,
+    });
+    setQty('');
+  };
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/30">
+        <span className="text-xs font-semibold text-gray-500">进货/补货录入</span>
+        <span className="text-[10px] text-gray-400 ml-2">录入后自动加入销量计算：销量 = 上周库存 + 补货 − 本周库存</span>
+      </div>
+
+      {/* Add form */}
+      <div className="p-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-0.5">产品</label>
+          <select value={prodId} onChange={e => setProdId(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+            {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-0.5">经销商</label>
+          <select value={distId} onChange={e => setDistId(e.target.value)}
+            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
+            {distributors.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-400 block mb-0.5">进货数量</label>
+          <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)}
+            placeholder="件数" onKeyDown={e => e.key === 'Enter' && handleAdd()}
+            className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <button onClick={handleAdd}
+          className="flex items-center gap-1 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">
+          <Plus size={14} />添加进货
+        </button>
+      </div>
+
+      {/* Recent restocks */}
+      {weekRestocks.length > 0 && (
+        <div className="border-t border-gray-50 max-h-[200px] overflow-y-auto scrollbar-thin">
+          <table className="w-full text-xs">
+            <thead><tr className="text-gray-400 border-b border-gray-50"><th className="text-left px-4 py-2">产品</th><th className="text-left px-4 py-2">经销商</th><th className="text-right px-4 py-2">数量</th><th className="text-center px-4 py-2 w-12"></th></tr></thead>
+            <tbody className="divide-y divide-gray-50">
+              {weekRestocks.map((r: any) => {
+                const p = products.find((x: any) => x.id === r.productId);
+                const d = distributors.find((x: any) => x.id === r.distributorId);
+                return (
+                  <tr key={r.id}>
+                    <td className="px-4 py-2 text-gray-700">{p?.name || r.productId}</td>
+                    <td className="px-4 py-2 text-gray-500">{d?.name || r.distributorId}</td>
+                    <td className="px-4 py-2 text-right font-medium text-gray-800">{r.quantity} 件</td>
+                    <td className="px-4 py-2 text-center">
+                      <button onClick={() => deleteRestock(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
