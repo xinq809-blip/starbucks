@@ -110,11 +110,27 @@ function StockEntry() {
         <button onClick={handleSave} className="px-4 py-1.5 bg-gray-900 text-white rounded-lg text-xs font-medium hover:bg-gray-800"><Save size={13} className="inline mr-1" />保存</button>
       </div>
 
+      {/* Region selector */}
+      {(() => {
+        const regions = [...new Set(distributors.map(d => d.region || '其他'))].filter(Boolean);
+        if (regions.length <= 1) return null;
+        return (
+          <div className="flex gap-1.5">
+            {regions.map(r => (
+              <button key={r} onClick={() => { const d = distributors.find(x => x.region === r); if (d) setActiveDist(d.id); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">
+                📍 {r}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* Distributor tabs */}
       <div className="flex gap-1.5">
         {distributors.map(d => { const p = distProgress.find(dp=>dp.name===d.name); return (
           <button key={d.id} onClick={()=>setActiveDist(d.id)} className={`flex-1 px-3 py-2 rounded-xl text-xs font-medium text-left transition-all ${activeDist===d.id?'bg-white border border-gray-200 shadow-sm':'bg-white/60 border border-transparent text-gray-500 hover:bg-white'}`}>
-            <div className="flex justify-between"><span>{d.name}</span><span className={p?.pct===100?'text-emerald-600':'text-gray-400'}>{p?.pct}%</span></div>
+            <div className="flex justify-between"><span>{d.name}</span><span className="text-[9px] text-gray-400">{d.region}</span><span className={p?.pct===100?'text-emerald-600':'text-gray-400'}>{p?.pct}%</span></div>
           </button>
         )})}
       </div>
