@@ -8,7 +8,7 @@ import {
 } from '../data/mockData';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, Legend, PieChart, Pie, Cell,
+  Legend, PieChart, Pie, Cell,
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Package, Coffee, AlertCircle,
@@ -167,16 +167,6 @@ export default function Dashboard() {
       };
     }).sort((a, b) => b.curSales - a.curSales);
   }, [distributors, distributorSales, snapshots, activeDate, weeks, restocks, hasData, totalSales]);
-
-  const weeklyTrend = useMemo(() => {
-    if (weeks.length < 2) return [];
-    return weeks.slice(1).map((w) => ({
-      week: getWeekLabel(w),
-      sales: getWeeklySales(snapshots, w, restocks).reduce((s, r) => s + Math.max(0, r.sales), 0),
-      stock: getTotalStock(snapshots, w),
-      value: Math.round(getInventoryValue(snapshots, w) / 10000 * 100) / 100,
-    }));
-  }, [weeks]);
 
   const distDrillDown = useMemo(() => {
     if (!hasSales) return { products: [], trend: [] };
@@ -572,20 +562,6 @@ export default function Dashboard() {
             </div>
 
             {/* 周趋势 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">销售趋势</h3>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={weeklyTrend}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="week" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip formatter={(v) => Number(v).toLocaleString()} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Line type="monotone" dataKey="sales" stroke="#00704A" strokeWidth={2} dot={{ r: 3 }} name="销量(件)" />
-                  <Line type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="5 5" name="库存价值(万)" />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <AlertCircle size={14} className="text-amber-500" />滞销预警
