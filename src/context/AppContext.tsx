@@ -155,12 +155,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [state.targets]);
 
   const addRestock = useCallback(async (r: RestockRecord) => {
-    await supabase.from('restocks').insert({ id: r.id, date: r.date, product_id: r.productId, distributor_id: r.distributorId, quantity: r.quantity, week_start: r.weekStart });
-  }, []);
+    // Optimistic update
+    dispatch({ type: 'SET_RESTOCKS', payload: [...state.restocks, r] });
+    try { await supabase.from('restocks').insert({ id: r.id, date: r.date, product_id: r.productId, distributor_id: r.distributorId, quantity: r.quantity, week_start: r.weekStart }); } catch {}
+  }, [state.restocks]);
 
   const deleteRestock = useCallback(async (id: string) => {
-    await supabase.from('restocks').delete().eq('id', id);
-  }, []);
+    dispatch({ type: 'SET_RESTOCKS', payload: state.restocks.filter(r => r.id !== id) });
+    try { await supabase.from('restocks').delete().eq('id', id); } catch {}
+  }, [state.restocks]);
 
   // Show sync status banner if there's an error (non-blocking)
   const syncBanner = loadErr ? (
