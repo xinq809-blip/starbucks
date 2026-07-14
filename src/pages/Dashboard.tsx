@@ -295,7 +295,7 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">数据看板</h1>
-          <p className="text-[11px] md:text-xs text-gray-400">最新盘点: {getWeekLabel(activeDate)} · {weeks.length}周 · {months.length}月</p>
+          <p className="text-[11px] md:text-xs text-gray-400">最新盘点: {getWeekLabel(activeDate)} · 共 {weeks.length} 次录入 · {months.length} 个月 · 最近录入 {weeks.length > 0 ? weeks[weeks.length-1] : '—'}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={exportCSV} className="flex items-center gap-1 px-2 py-1.5 text-[11px] md:text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"><Download size={13} /><span className="hidden sm:inline">导出</span></button>
@@ -320,7 +320,7 @@ export default function Dashboard() {
             <KpiCard label="总库存" value={totalStock.toLocaleString() + ' 件'} sub={getWeekLabel(activeDate)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
             <KpiCard label="库存价值" value={'¥' + (invValue / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeDate)} icon={DollarSign} color="text-blue-500" bg="bg-blue-50" />
             <KpiCard label="周转天数" value={turnoverDays !== null ? turnoverDays + ' 天' : '—'} sub="库存/日均销量" icon={Clock} color="text-cyan-500" bg="bg-cyan-50" />
-            <KpiCard label="销量环比" value={(salesChange >= 0 ? '+' : '') + salesChange.toFixed(1) + '%'} sub="较上周" icon={salesChange >= 0 ? TrendingUp : TrendingDown} color={salesChange >= 0 ? 'text-emerald-500' : 'text-red-500'} bg={salesChange >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
+            <KpiCard label="销量环比" value={(salesChange >= 0 ? '+' : '') + salesChange.toFixed(1) + '%'} sub="较上期" icon={salesChange >= 0 ? TrendingUp : TrendingDown} color={salesChange >= 0 ? 'text-emerald-500' : 'text-red-500'} bg={salesChange >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
@@ -414,18 +414,32 @@ export default function Dashboard() {
           {/* Row 3: 品类分析 + 单客户分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">品类销售分析</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">品类销售分析</h3>
               {categorySales.length > 0 ? (
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={categorySales} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis type="number" tick={{ fontSize: 10 }} />
-                    <YAxis dataKey="category" type="category" tick={{ fontSize: 10 }} width={100} />
-                    <Tooltip formatter={(v, n) => [Number(v).toLocaleString() + (n === 'value' ? ' 元' : ' 件'), n === 'value' ? '销售额' : '销量']} />
-                    <Bar dataKey="sales" fill="#00704A" radius={[0, 3, 3, 0]} name="销量" />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : <div className="flex items-center justify-center h-[260px] text-gray-400 text-sm">暂无数据</div>}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <ResponsiveContainer width="100%" height={160}>
+                      <BarChart data={categorySales} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                        <XAxis type="number" tick={{ fontSize: 10 }} />
+                        <YAxis dataKey="category" type="category" tick={{ fontSize: 10 }} width={100} />
+                        <Tooltip formatter={(v) => Number(v).toLocaleString() + ' 件'} />
+                        <Bar dataKey="sales" fill="#00704A" radius={[0, 3, 3, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="w-[120px]">
+                    <ResponsiveContainer width="100%" height={160}>
+                      <PieChart>
+                        <Pie data={categorySales.filter(c => c.sales > 0)} dataKey="sales" nameKey="category" cx="50%" cy="50%" outerRadius={55} innerRadius={25}>
+                          {categorySales.filter(c => c.sales > 0).map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                        </Pie>
+                        <Tooltip formatter={(v) => Number(v).toLocaleString() + ' 件'} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              ) : <div className="flex items-center justify-center h-[160px] text-gray-400 text-sm">暂无数据</div>}
             </div>
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <div className="flex items-center justify-between mb-3">
@@ -507,14 +521,16 @@ export default function Dashboard() {
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                 <AlertCircle size={14} className="text-red-400" />安全库存预警
+                <SafeStockEdit />
               </h3>
               {(() => {
+                const safeMap = getSafeStockLevels();
                 const alertItems = products.map(p => {
                   const stock = snapshots.filter(s => s.weekStart === activeDate && s.productId === p.id).reduce((a,s) => a + s.quantity, 0);
-                  const safeLine = 30; // default safety stock line
-                  if (stock < safeLine) return { name: p.name, stock, safeLine };
+                  const safeLine = safeMap[p.id] || 30;
+                  if (stock < safeLine) return { id: p.id, name: p.name, stock, safeLine };
                   return null;
-                }).filter(Boolean) as { name: string; stock: number; safeLine: number }[];
+                }).filter(Boolean) as { id: string; name: string; stock: number; safeLine: number }[];
                 if (alertItems.length === 0) return <div className="text-xs text-gray-300 text-center py-4">所有产品库存充足</div>;
                 return alertItems.map((x, i) => (
                   <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
@@ -713,6 +729,30 @@ export default function Dashboard() {
         }
       `}</style>
     </div>
+  );
+}
+
+/* ==================== 安全库存 ==================== */
+function getSafeStockLevels(): Record<string, number> {
+  try { const r = localStorage.getItem('sb_safe_stock'); if (r) return JSON.parse(r); } catch {}
+  return {};
+}
+function SafeStockEdit() {
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState('30');
+  const current = getSafeStockLevels()['__default__'] || 30;
+  return (
+    <span className="text-[10px] font-normal text-gray-400 cursor-pointer hover:text-starbucks-600 ml-1" onClick={() => { setOpen(true); setVal(String(current)); }}>
+      (阈值 {current}件)
+      {open && (
+        <span className="inline-flex items-center gap-1 ml-1" onClick={e => e.stopPropagation()}>
+          <input type="number" min="1" value={val} onChange={e => setVal(e.target.value)}
+            className="w-12 border rounded px-1 py-0 text-[10px]" autoFocus onKeyDown={e => { if (e.key === 'Enter') { const n = parseInt(val) || 30; const m = getSafeStockLevels(); m.__default__ = n; localStorage.setItem('sb_safe_stock', JSON.stringify(m)); setOpen(false); } }} />
+          <button onClick={() => { const n = parseInt(val) || 30; const m = getSafeStockLevels(); m.__default__ = n; localStorage.setItem('sb_safe_stock', JSON.stringify(m)); setOpen(false); }}
+            className="text-[10px] text-white bg-starbucks-500 px-1 rounded">✓</button>
+        </span>
+      )}
+    </span>
   );
 }
 
