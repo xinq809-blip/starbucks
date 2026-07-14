@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, PencilLine, History, Package, Coffee, Menu, X, Store, Dumbbell, Users, DollarSign, Map } from 'lucide-react';
+import { LayoutDashboard, PencilLine, History, Package, Coffee, Menu, X, Store, Dumbbell, Users, DollarSign } from 'lucide-react';
 
 const navGroups = [
   {
@@ -22,7 +22,6 @@ const navGroups = [
     label: '财务',
     items: [
       { to: '/expense', icon: DollarSign, label: '费用管理', end: false },
-      { to: '/expense-map', icon: Map, label: '费用地图', end: false },
     ],
   },
   {

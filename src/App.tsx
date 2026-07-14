@@ -11,7 +11,6 @@ import Billiard from './pages/Billiard';
 import Distributors from './pages/Distributors';
 import DistributorDetail from './pages/DistributorDetail';
 import Expense from './pages/Expense';
-import ExpenseMap from './pages/ExpenseMap';
 
 export default function App() {
   return (
@@ -27,7 +26,6 @@ export default function App() {
             <Route path="/supermarket" element={<Supermarket />} />
             <Route path="/billiard" element={<Billiard />} />
             <Route path="/expense" element={<Expense />} />
-            <Route path="/expense-map" element={<ExpenseMap />} />
             <Route path="/distributors" element={<Distributors />} />
             <Route path="/distributor/:id" element={<DistributorDetail />} />
           </Route>
