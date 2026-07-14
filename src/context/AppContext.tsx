@@ -130,15 +130,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const saveWeek = useCallback(async (weekStart: string, entries: { productId: string; distributorId: string; quantity: number }[]) => {
-    await supabase.from('weekly_snapshots').delete().eq('week_start', weekStart);
-    const rows = entries.filter(e => e.quantity >= 0).map(e => ({ week_start: weekStart, product_id: e.productId, distributor_id: e.distributorId, quantity: e.quantity }));
-    for (let i = 0; i < rows.length; i += 100) {
-      await supabase.from('weekly_snapshots').insert(rows.slice(i, i + 100));
-    }
-    // Reload to update local state immediately
-    const r = await supabase.from('weekly_snapshots').select('*');
-    dispatch({ type: 'SET_SNAPSHOTS', payload: (r.data || []).map((x: any) => ({ weekStart: x.week_start, productId: x.product_id, distributorId: x.distributor_id, quantity: x.quantity })) });
-  }, []);
+    // Optimistic update: immediately update local state
+    dispatch({ type: 'SET_SNAPSHOTS', payload: state.snapshots.filter(s => s.weekStart !== weekStart).concat(
+      entries.filter(e => e.quantity >= 0).map(e => ({ weekStart, productId: e.productId, distributorId: e.distributorId, quantity: e.quantity }))
+    )});
+    // Then sync to Supabase
+    try {
+      await supabase.from('weekly_snapshots').delete().eq('week_start', weekStart);
+      const rows = entries.filter(e => e.quantity >= 0).map(e => ({ week_start: weekStart, product_id: e.productId, distributor_id: e.distributorId, quantity: e.quantity }));
+      for (let i = 0; i < rows.length; i += 100) {
+        await supabase.from('weekly_snapshots').insert(rows.slice(i, i + 100));
+      }
+    } catch {}
+  }, [state.snapshots]);
 
   const saveTarget = useCallback(async (t: MonthlyTarget) => {
     await supabase.from('targets').upsert({ month: t.month, sales_target: t.salesTarget }, { onConflict: 'month' });
