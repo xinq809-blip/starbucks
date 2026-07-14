@@ -59,29 +59,37 @@ export default function ExpenseMapPage() {
     });
   }, []);
 
+  // Fallback coords for known stores
+  const fallbackCoords: Record<string, [number, number]> = {
+    '山海关梁波': [39.98, 119.77],
+    '杨子': [39.93, 119.60],
+    '速恩': [39.91, 119.55],
+    '北戴河王总': [39.83, 119.48],
+  };
+
   // Match actuals to distributors by name
   const stores = useMemo(() => {
-    return distributors
-      .filter(d => d.lat && d.lng)
-      .map(d => {
-        const distActuals = actuals.filter(a =>
-          a.month === selectedMonth && a.location === d.name &&
-          (selectedCat === 'all' || a.category === selectedCat)
-        );
-        const byCat: Record<string, number> = {};
-        distActuals.forEach(a => { byCat[a.category] = (byCat[a.category] || 0) + (a.amount || 0); });
-        const total = Object.values(byCat).reduce((s, v) => s + v, 0);
-        return {
-          name: d.name, lat: d.lat, lng: d.lng,
-          display: byCat['display'] || 0,
-          promotion: byCat['promotion'] || 0,
-          salary: byCat['salary'] || 0,
-          project: byCat['project'] || 0,
-          commitment: byCat['commitment'] || 0,
-          other: byCat['other'] || 0,
-          total,
-        };
-      });
+    return distributors.map(d => {
+      const lat = d.lat || fallbackCoords[d.name]?.[0] || 39.9;
+      const lng = d.lng || fallbackCoords[d.name]?.[1] || 119.6;
+      const distActuals = actuals.filter(a =>
+        a.month === selectedMonth && a.location === d.name &&
+        (selectedCat === 'all' || a.category === selectedCat)
+      );
+      const byCat: Record<string, number> = {};
+      distActuals.forEach(a => { byCat[a.category] = (byCat[a.category] || 0) + (a.amount || 0); });
+      const total = Object.values(byCat).reduce((s, v) => s + v, 0);
+      return {
+        name: d.name, lat, lng,
+        display: byCat['display'] || 0,
+        promotion: byCat['promotion'] || 0,
+        salary: byCat['salary'] || 0,
+        project: byCat['project'] || 0,
+        commitment: byCat['commitment'] || 0,
+        other: byCat['other'] || 0,
+        total,
+      };
+    });
   }, [distributors, actuals, selectedMonth, selectedCat]);
 
   const maxTotal = Math.max(...stores.map(s => s.total), 1);
