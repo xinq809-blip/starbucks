@@ -338,8 +338,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">产品销售排行 Top 10</h3>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={productRanking.slice(0, 10)} layout="vertical" margin={{ left: 5 }}>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={productRanking.slice(0, 8)} layout="vertical" margin={{ left: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis type="number" tick={{ fontSize: 10 }} />
                   <YAxis dataKey="shortName" type="category" tick={(props: any) => {
@@ -444,10 +444,136 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Row 3: 周趋势 + 滞销预警 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+          {/* Row 3: ABC分类 + 库存价值 + 周转排行 + 动销率 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* ABC 分类 */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">周销售趋势</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">ABC 分类</h3>
+              {(() => {
+                const sorted = [...productSales].sort((a,b) => b.sales - a.sales);
+                const total = sorted.reduce((s,x) => s + x.sales, 0);
+                let cum = 0;
+                const abc = { A: 0, B: 0, C: 0 };
+                sorted.forEach(x => { cum += x.sales; const pct = cum / total; if (pct <= 0.7) abc.A++; else if (pct <= 0.9) abc.B++; else abc.C++; });
+                return (
+                  <div className="space-y-2">
+                    {[{k:'A',v:abc.A,c:'bg-emerald-500',label:'高销量'},{k:'B',v:abc.B,c:'bg-amber-500',label:'中等'},{k:'C',v:abc.C,c:'bg-red-400',label:'滞销'}].map(x => (
+                      <div key={x.k} className="flex items-center gap-2 text-xs">
+                        <span className="font-bold text-gray-700 w-6">{x.k}</span>
+                        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${x.c}`} style={{width:`${(x.v/Math.max(products.length,1))*100}%`}} />
+                        </div>
+                        <span className="text-gray-500 w-16 text-right">{x.v} SKU ({x.label})</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 库存价值分布 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">库存价值</h3>
+              {(() => {
+                const catValue = categorySales.map(c => {
+                  const stock = snapshots.filter(s => s.weekStart === activeDate).filter(s => { const p = getProductById(s.productId); return p?.category === c.category; }).reduce((a,s) => { const p = getProductById(s.productId); return a + s.quantity * (p?.unitPrice||0); }, 0);
+                  return { name: c.category.length > 6 ? c.category.slice(0,5)+'…' : c.category, value: Math.round(stock) };
+                }).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
+                const maxV = Math.max(...catValue.map(x => x.value), 1);
+                return (
+                  <div className="space-y-1.5">
+                    {catValue.slice(0, 6).map(x => (
+                      <div key={x.name} className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-600 w-14 truncate">{x.name}</span>
+                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-violet-400 rounded-full" style={{width:`${(x.value/maxV)*100}%`}} />
+                        </div>
+                        <span className="text-gray-500 text-[10px]">¥{(x.value/10000).toFixed(1)}万</span>
+                      </div>
+                    ))}
+                    <div className="pt-2 border-t border-gray-100 text-xs font-bold text-gray-700">
+                      总价值 ¥{(catValue.reduce((s,x)=>s+x.value,0)/10000).toFixed(1)}万
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* 周转天数排行 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">周转天数 Top 5</h3>
+              {(() => {
+                const turnData = products.map(p => {
+                  const curS = snapshots.filter(s => s.weekStart === activeDate && s.productId === p.id).reduce((a,s) => a + s.quantity, 0);
+                  const sales = productSales.find(x => x.productId === p.id)?.sales || 0;
+                  const days = sales > 0 ? Math.round((curS / (sales / 7)) * 10) / 10 : curS > 0 ? 99 : 0;
+                  return { name: p.name.length > 10 ? p.name.slice(0,9)+'…' : p.name, days, stock: curS };
+                }).sort((a,b) => b.days - a.days).slice(0, 5);
+                return turnData.map((x, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs py-1 border-b border-gray-50 last:border-0">
+                    <span className="text-gray-600 truncate flex-1">{x.name}</span>
+                    <span className={`font-bold ml-2 ${x.days > 30 ? 'text-red-500' : x.days > 14 ? 'text-amber-600' : 'text-emerald-600'}`}>{x.days}天</span>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* 动销率趋势 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">动销率趋势</h3>
+              {(() => {
+                const mData = weeks.slice(1).map(w => {
+                  const ws = getWeeklySales(snapshots, w, restocks);
+                  const active = ws.filter(r => r.sales > 0).length;
+                  const total = ws.length || 1;
+                  return { w: w.slice(5), rate: Math.round((active / total) * 100) };
+                });
+                if (mData.length === 0) return <div className="text-xs text-gray-300 text-center py-6">数据不足</div>;
+                return (
+                  <div className="space-y-1">
+                    {mData.slice(-6).map((x, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className="text-gray-400 w-8">{x.w}</span>
+                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full ${x.rate >= 50 ? 'bg-emerald-500' : x.rate >= 30 ? 'bg-amber-500' : 'bg-red-400'}`} style={{width:`${x.rate}%`}} />
+                        </div>
+                        <span className="font-bold text-gray-600 w-10 text-right">{x.rate}%</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* Row 4: 安全库存预警 + 滞销预警 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
+            {/* 安全库存预警 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                <AlertCircle size={14} className="text-red-400" />安全库存预警
+              </h3>
+              {(() => {
+                const alertItems = products.map(p => {
+                  const stock = snapshots.filter(s => s.weekStart === activeDate && s.productId === p.id).reduce((a,s) => a + s.quantity, 0);
+                  const safeLine = 30; // default safety stock line
+                  if (stock < safeLine) return { name: p.name, stock, safeLine };
+                  return null;
+                }).filter(Boolean) as { name: string; stock: number; safeLine: number }[];
+                if (alertItems.length === 0) return <div className="text-xs text-gray-300 text-center py-4">所有产品库存充足</div>;
+                return alertItems.map((x, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+                    <span className="text-gray-700 truncate flex-1">{x.name}</span>
+                    <span className="text-red-500 font-bold">{x.stock}</span>
+                    <span className="text-gray-400 ml-1">/ {x.safeLine}件</span>
+                  </div>
+                ));
+              })()}
+            </div>
+
+            {/* 周趋势 */}
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">销售趋势</h3>
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={weeklyTrend}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
