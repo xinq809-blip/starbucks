@@ -334,64 +334,77 @@ export default function Dashboard() {
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
-          {/* Region comparison */}
+          {/* Region comparison - reporting style */}
           {regionList.length > 1 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {regionList.map(r => {
-                const rDists = distributors.filter(d => d.region === r);
-                const rSales = distributorSales.filter(s => rDists.some(d => d.id === s.distributorId));
-                const rTotalSales = rSales.reduce((s, x) => s + Math.max(0, x.sales), 0);
-                const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rDists.some(d => d.id === s.distributorId)).reduce((a, s) => a + s.quantity, 0);
-                const isQhd = r === '秦皇岛';
-                return (
-                  <div key={r} className={`relative overflow-hidden rounded-2xl shadow-sm border ${isQhd ? 'bg-gradient-to-br from-blue-50 to-white border-blue-100' : 'bg-gradient-to-br from-amber-50 to-white border-amber-100'}`}>
-                    <div className={`h-1.5 ${isQhd ? 'bg-gradient-to-r from-blue-400 to-blue-600' : 'bg-gradient-to-r from-amber-400 to-amber-600'}`} />
-                    <div className="p-5">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xl">{isQhd ? '🌊' : '🏭'}</span>
-                          <h3 className="text-base font-bold text-gray-800">{r}</h3>
+            <div>
+              <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+                <span className="w-1 h-4 bg-gray-800 rounded-full" />
+                区域对比分析
+                <span className="text-[11px] font-normal text-gray-400 ml-2">秦皇岛 vs 唐山</span>
+              </h2>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="grid grid-cols-2 divide-x divide-gray-50">
+                  {regionList.map(r => {
+                    const rDists = distributors.filter(d => d.region === r);
+                    const rTotalSales = distributorSales.filter(s => rDists.some(d => d.id === s.distributorId)).reduce((s, x) => s + Math.max(0, x.sales), 0);
+                    const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rDists.some(d => d.id === s.distributorId)).reduce((a, s) => a + s.quantity, 0);
+                    return (
+                      <div key={r} className="p-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <span className="text-xs font-bold text-gray-800 tracking-wide">{r}</span>
+                          <span className="text-[10px] text-gray-400">{rDists.length} 家经销商</span>
                         </div>
-                        <span className="text-xs text-gray-400">{rDists.length} 个经销商</span>
-                      </div>
-                      <div className="flex items-end gap-6 mb-4">
-                        <div>
-                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">销量</p>
-                          <p className={`text-2xl font-bold ${isQhd ? 'text-blue-600' : 'text-amber-600'}`}>{rTotalSales.toLocaleString()}</p>
-                          <p className="text-[10px] text-gray-400">件</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">库存</p>
-                          <p className="text-2xl font-bold text-gray-700">{rTotalStock.toLocaleString()}</p>
-                          <p className="text-[10px] text-gray-400">件</p>
-                        </div>
-                        <div className="flex-1 text-right">
-                          <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${rTotalSales > 0 ? (isQhd ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700') : 'bg-gray-100 text-gray-400'}`}>
-                            {rTotalStock > 0 ? Math.round((rTotalSales / (rTotalSales + rTotalStock)) * 100) : 0}% 动销
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">本期销量</p>
+                            <p className="text-xl font-bold text-gray-800">{rTotalSales.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">期末库存</p>
+                            <p className="text-xl font-bold text-gray-800">{rTotalStock.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></p>
                           </div>
                         </div>
-                      </div>
-                      <div className="space-y-1.5 border-t border-gray-100 pt-3">
-                        {rDists.map(d => {
-                          const ds = distributorSales.find(s => s.distributorId === d.id);
-                          const sales = ds ? Math.max(0, ds.sales) : 0;
-                          const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
-                          const maxS = Math.max(...rDists.map(x => { const xs = distributorSales.find(s => s.distributorId === x.id); return xs ? Math.max(0, xs.sales) : 0; }), 1);
-                          return (
-                            <div key={d.id} className="flex items-center gap-2 text-xs">
-                              <span className="w-16 text-gray-600 truncate">{d.name}</span>
-                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                <div className={`h-full rounded-full ${isQhd ? 'bg-blue-400' : 'bg-amber-400'}`} style={{ width: `${(sales / maxS) * 100}%` }} />
+                        <div className="border-t border-gray-50 pt-3 space-y-2">
+                          {rDists.map(d => {
+                            const ds = distributorSales.find(s => s.distributorId === d.id);
+                            const sales = ds ? Math.max(0, ds.sales) : 0;
+                            const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
+                            return (
+                              <div key={d.id} className="flex items-center justify-between text-xs">
+                                <span className="text-gray-700">{d.name}</span>
+                                <div className="flex items-center gap-3 text-[11px]">
+                                  <span className="text-gray-500">销量 <b className="text-gray-800">{sales}</b></span>
+                                  <span className="text-gray-500">库存 <b className="text-gray-800">{stock}</b></span>
+                                </div>
                               </div>
-                              <span className="text-[10px] text-gray-400 w-24 text-right">销{sales} 存{stock}</span>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+                {/* Comparison summary bar */}
+                <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50 flex items-center gap-4 text-[11px]">
+                  <span className="text-gray-500">区域合计对比</span>
+                  {regionList.map(r => {
+                    const rDists = distributors.filter(d => d.region === r);
+                    const rSales = distributorSales.filter(s => rDists.some(d => d.id === s.distributorId)).reduce((s, x) => s + Math.max(0, x.sales), 0);
+                    const rStock = snapshots.filter(s => s.weekStart === activeDate && rDists.some(d => d.id === s.distributorId)).reduce((a, s) => a + s.quantity, 0);
+                    const total = rSales + rStock;
+                    const pct = total > 0 ? Math.round((rSales / total) * 100) : 0;
+                    return (
+                      <div key={r} className="flex items-center gap-2 flex-1">
+                        <span className="text-gray-600 font-medium w-12">{r}</span>
+                        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div className="h-full bg-gray-800 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="text-gray-500">{pct}% 动销</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
 
