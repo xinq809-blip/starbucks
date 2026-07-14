@@ -38,10 +38,10 @@ export const products: Product[] = [
 ];
 
 export const distributors: Distributor[] = [
-  { id: 'd1', name: '山海关梁波', region: '山海关', phone: '', address: '' },
-  { id: 'd2', name: '杨子', region: '', phone: '', address: '' },
-  { id: 'd3', name: '速恩', region: '', phone: '', address: '' },
-  { id: 'd4', name: '北戴河王总', region: '北戴河', phone: '', address: '' },
+  { id: 'd1', name: '山海关梁波', region: '山海关', phone: '', address: '', lat: 39.98, lng: 119.77 },
+  { id: 'd2', name: '杨子', region: '', phone: '', address: '', lat: 39.93, lng: 119.58 },
+  { id: 'd3', name: '速恩', region: '', phone: '', address: '', lat: 39.91, lng: 119.52 },
+  { id: 'd4', name: '北戴河王总', region: '北戴河', phone: '', address: '', lat: 39.83, lng: 119.48 },
 ];
 
 /** Module-level store — kept empty, real data lives in AppContext.

@@ -6,10 +6,10 @@ import { supabase } from '../lib/supabase';
 import type { Distributor } from '../types';
 
 const DEFAULT_DISTRIBUTORS: Distributor[] = [
-  { id: 'd1', name: '山海关梁波', region: '山海关', phone: '', address: '' },
-  { id: 'd2', name: '杨子', region: '', phone: '', address: '' },
-  { id: 'd3', name: '速恩', region: '', phone: '', address: '' },
-  { id: 'd4', name: '北戴河王总', region: '北戴河', phone: '', address: '' },
+  { id: 'd1', name: '山海关梁波', region: '山海关', phone: '', address: '', lat: 39.98, lng: 119.77 },
+  { id: 'd2', name: '杨子', region: '', phone: '', address: '', lat: 39.93, lng: 119.58 },
+  { id: 'd3', name: '速恩', region: '', phone: '', address: '', lat: 39.91, lng: 119.52 },
+  { id: 'd4', name: '北戴河王总', region: '北戴河', phone: '', address: '', lat: 39.83, lng: 119.48 },
 ];
 
 function genId() { return 'd' + Date.now().toString(36); }
@@ -19,7 +19,7 @@ export default function DistributorsPage() {
   const [items, setItems] = useState<Distributor[]>(DEFAULT_DISTRIBUTORS);
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', region: '', phone: '', address: '' });
+  const [form, setForm] = useState({ name: '', region: '', phone: '', address: '', lat: 0, lng: 0 });
   const nav = useNavigate();
 
   // Load from Supabase
@@ -44,7 +44,7 @@ export default function DistributorsPage() {
     });
   };
 
-  const resetForm = () => setForm({ name: '', region: '', phone: '', address: '' });
+  const resetForm = () => setForm({ name: '', region: '', phone: '', address: '', lat: 0, lng: 0 });
 
   const startAdd = () => { resetForm(); setAdding(true); setEditing(null); };
   const startEdit = (d: Distributor) => { setForm(d); setEditing(d.id); setAdding(false); };
@@ -141,6 +141,16 @@ export default function DistributorsPage() {
               <div>
                 <label className="text-[11px] text-gray-400 mb-1 block">地址</label>
                 <input value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} placeholder="详细地址" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:bg-white focus:border-gray-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-gray-400 mb-1 block">纬度 (lat)</label>
+                  <input type="number" step="0.0001" value={form.lat || ''} onChange={e => setForm({ ...form, lat: parseFloat(e.target.value) || 0 })} placeholder="39.93" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:bg-white focus:border-gray-400" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-gray-400 mb-1 block">经度 (lng)</label>
+                  <input type="number" step="0.0001" value={form.lng || ''} onChange={e => setForm({ ...form, lng: parseFloat(e.target.value) || 0 })} placeholder="119.60" className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:bg-white focus:border-gray-400" />
+                </div>
               </div>
               <div className="flex justify-end gap-3 pt-2">
                 <button onClick={cancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>

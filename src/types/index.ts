@@ -20,6 +20,8 @@ export interface Distributor {
   region: string;
   phone: string;
   address: string;
+  lat: number;
+  lng: number;
 }
 
 export interface WeeklySnapshot {
