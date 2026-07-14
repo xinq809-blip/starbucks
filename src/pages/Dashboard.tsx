@@ -334,81 +334,7 @@ export default function Dashboard() {
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
-          {/* Region comparison - reporting style */}
-          {regionList.length > 1 && (
-            <div>
-              <h2 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                <span className="w-1 h-4 bg-gray-800 rounded-full" />
-                区域对比分析
-                <span className="text-[11px] font-normal text-gray-400 ml-2">秦皇岛 vs 唐山</span>
-              </h2>
-              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                <div className="grid grid-cols-2 divide-x divide-gray-50">
-                  {regionList.map(r => {
-                    const rDists = distributors.filter(d => d.region === r);
-                    const rTotalSales = distributorSales.filter(s => rDists.some(d => d.id === s.distributorId)).reduce((s, x) => s + Math.max(0, x.sales), 0);
-                    const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rDists.some(d => d.id === s.distributorId)).reduce((a, s) => a + s.quantity, 0);
-                    return (
-                      <div key={r} className="p-5">
-                        <div className="flex items-center justify-between mb-4">
-                          <span className="text-xs font-bold text-gray-800 tracking-wide">{r}</span>
-                          <span className="text-[10px] text-gray-400">{rDists.length} 家经销商</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">本期销量</p>
-                            <p className="text-xl font-bold text-gray-800">{rTotalSales.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">期末库存</p>
-                            <p className="text-xl font-bold text-gray-800">{rTotalStock.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></p>
-                          </div>
-                        </div>
-                        <div className="border-t border-gray-50 pt-3 space-y-2">
-                          {rDists.map(d => {
-                            const ds = distributorSales.find(s => s.distributorId === d.id);
-                            const sales = ds ? Math.max(0, ds.sales) : 0;
-                            const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
-                            return (
-                              <div key={d.id} className="flex items-center justify-between text-xs">
-                                <span className="text-gray-700">{d.name}</span>
-                                <div className="flex items-center gap-3 text-[11px]">
-                                  <span className="text-gray-500">销量 <b className="text-gray-800">{sales}</b></span>
-                                  <span className="text-gray-500">库存 <b className="text-gray-800">{stock}</b></span>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {/* Comparison summary bar */}
-                <div className="border-t border-gray-100 px-5 py-3 bg-gray-50/50 flex items-center gap-4 text-[11px]">
-                  <span className="text-gray-500">区域合计对比</span>
-                  {regionList.map(r => {
-                    const rDists = distributors.filter(d => d.region === r);
-                    const rSales = distributorSales.filter(s => rDists.some(d => d.id === s.distributorId)).reduce((s, x) => s + Math.max(0, x.sales), 0);
-                    const rStock = snapshots.filter(s => s.weekStart === activeDate && rDists.some(d => d.id === s.distributorId)).reduce((a, s) => a + s.quantity, 0);
-                    const total = rSales + rStock;
-                    const pct = total > 0 ? Math.round((rSales / total) * 100) : 0;
-                    return (
-                      <div key={r} className="flex items-center gap-2 flex-1">
-                        <span className="text-gray-600 font-medium w-12">{r}</span>
-                        <div className="flex-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                          <div className="h-full bg-gray-800 rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="text-gray-500">{pct}% 动销</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Row 1: 产品排行 + 经销商占比饼图 */}
+          {/* Row 1: 产品排行 + 品类分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">产品销售排行 Top 10</h3>
@@ -439,68 +365,41 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            {/* 经销商健康度 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-700">经销商健康度</h3>
-                <div className="flex items-center gap-2 text-[10px]">
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />健康 {distHealth.filter(d => d.status === 'green').length}</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />关注 {distHealth.filter(d => d.status === 'yellow').length}</span>
-                  <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />问题 {distHealth.filter(d => d.status === 'red').length}</span>
-                </div>
-              </div>
-              <div className="space-y-2 max-h-[320px] overflow-y-auto scrollbar-thin">
-                {distHealth.map((dh) => (
-                  <div key={dh.distributor.id} className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${
-                    dh.status === 'red' ? 'border-red-200 bg-red-50/50' :
-                    dh.status === 'yellow' ? 'border-amber-200 bg-amber-50/50' :
-                    'border-gray-100 bg-gray-50/30'
-                  }`}>
-                    {/* Rank + Status dot */}
-                    <div className="flex items-center gap-2 min-w-[80px]">
-                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
-                        dh.status === 'red' ? 'bg-red-400' : dh.status === 'yellow' ? 'bg-amber-400' : 'bg-emerald-400'
-                      }`} />
-                      <div>
-                        <p className="text-xs font-semibold text-gray-800">{dh.distributor.name}</p>
-                        <p className="text-[10px] text-gray-400">占比 {dh.share.toFixed(1)}%</p>
+            {/* 经销商健康度 - 按区域分 */}
+            <div className="space-y-3">
+              {regionList.map(r => {
+                const rDists = distHealth.filter(dh => distributors.find(d => d.id === dh.distributor.id)?.region === r);
+                if (rDists.length === 0) return null;
+                return (
+                  <div key={r} className="bg-white rounded-xl border border-gray-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700">{r} · 经销商健康度</h3>
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />{rDists.filter(d => d.status === 'green').length}</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />{rDists.filter(d => d.status === 'yellow').length}</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />{rDists.filter(d => d.status === 'red').length}</span>
                       </div>
                     </div>
-                    {/* Sales & change */}
-                    <div className="flex-1 grid grid-cols-4 gap-2 text-center">
-                      <div>
-                        <p className="text-[10px] text-gray-400">本周出货</p>
-                        <p className="text-xs font-bold text-gray-800">{dh.curSales.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-gray-400">环比变化</p>
-                        <p className={`text-xs font-bold ${dh.changePct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {dh.changePct >= 0 ? '+' : ''}{dh.changePct.toFixed(0)}%
-                          {dh.changePct > 0 ? '↑' : dh.changePct < 0 ? '↓' : '─'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-gray-400">当前库存</p>
-                        <p className="text-xs font-bold text-gray-700">{dh.dStock.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-gray-400">存销比</p>
-                        <p className={`text-xs font-bold ${dh.stockRatio > 4 ? 'text-amber-600' : 'text-gray-600'}`}>
-                          {dh.stockRatio >= 99 ? '∞' : dh.stockRatio.toFixed(1) + 'x'}
-                        </p>
-                      </div>
+                    <div className="space-y-2">
+                      {rDists.map((dh) => (
+                        <div key={dh.distributor.id} className={`flex items-center gap-3 p-2.5 rounded-lg border ${dh.status === 'red' ? 'border-red-200 bg-red-50/50' : dh.status === 'yellow' ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-gray-50/30'}`}>
+                          <div className="flex items-center gap-2 min-w-[80px]">
+                            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dh.status === 'red' ? 'bg-red-400' : dh.status === 'yellow' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+                            <div><p className="text-xs font-semibold text-gray-800">{dh.distributor.name}</p></div>
+                          </div>
+                          <div className="flex-1 grid grid-cols-4 gap-2 text-center">
+                            <div><p className="text-[10px] text-gray-400">出货</p><p className="text-xs font-bold text-gray-800">{dh.curSales}</p></div>
+                            <div><p className="text-[10px] text-gray-400">环比</p><p className={`text-xs font-bold ${dh.changePct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{dh.changePct >= 0 ? '+' : ''}{dh.changePct.toFixed(0)}%</p></div>
+                            <div><p className="text-[10px] text-gray-400">库存</p><p className="text-xs font-bold text-gray-700">{dh.dStock}</p></div>
+                            <div><p className="text-[10px] text-gray-400">存销比</p><p className={`text-xs font-bold ${dh.stockRatio > 4 ? 'text-amber-600' : 'text-gray-600'}`}>{dh.stockRatio >= 99 ? '∞' : dh.stockRatio.toFixed(1)}x</p></div>
+                          </div>
+                          {dh.problem && <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${dh.status === 'red' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>{dh.problem}</span>}
+                        </div>
+                      ))}
                     </div>
-                    {/* Problem badge */}
-                    {dh.problem && (
-                      <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                        dh.status === 'red' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'
-                      }`}>
-                        {dh.problem}
-                      </span>
-                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
           </div>
 
