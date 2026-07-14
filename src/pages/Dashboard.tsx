@@ -324,11 +324,11 @@ export default function Dashboard() {
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
-          {/* Row 1: 产品排行 + 品类分析 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">产品销售排行 Top 10</h3>
-              <ResponsiveContainer width="100%" height={180}>
+          {/* Row 1: 产品排行 + ABC & 库存价值 */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">产品销售排行</h3>
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart data={productRanking.slice(0, 6)} layout="vertical" margin={{ left: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis type="number" tick={{ fontSize: 10 }} />
@@ -338,16 +338,10 @@ export default function Dashboard() {
                     const rc = item?.rankChange ?? 0;
                     const arrow = rc > 0 ? '↑' : rc < 0 ? '↓' : '─';
                     const color = rc > 0 ? '#059669' : rc < 0 ? '#ef4444' : '#9ca3af';
-                    return (
-                      <text x={x} y={y} dy={3} textAnchor="end" fill="#374151" fontSize={10}>
-                        <tspan fill={color} fontWeight="bold">{arrow}</tspan>
-                        <tspan> {payload.value}</tspan>
-                      </text>
-                    );
+                    return <text x={x} y={y} dy={3} textAnchor="end" fill="#374151" fontSize={10}><tspan fill={color} fontWeight="bold">{arrow}</tspan><tspan> {payload.value}</tspan></text>;
                   }} width={110} />
                   <Tooltip formatter={(v, _n, props: any) => {
-                    const item = props.payload;
-                    const rc = item.rankChange ?? 0;
+                    const item = props.payload; const rc = item.rankChange ?? 0;
                     const changeText = rc > 0 ? `↑${rc}` : rc < 0 ? `↓${Math.abs(rc)}` : '─';
                     return [[Number(v).toLocaleString() + ' 件', '销量'], [`第${item.rank}名 ${changeText}`, '排名']];
                   }} labelFormatter={(_, p) => p?.[0]?.payload?.name ?? ''} />
@@ -355,45 +349,69 @@ export default function Dashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            {/* 经销商健康度 - 按区域分 */}
-            <div className="space-y-3">
-              {regionList.map(r => {
-                const rDists = distHealth.filter(dh => distributors.find(d => d.id === dh.distributor.id)?.region === r);
-                if (rDists.length === 0) return null;
-                return (
-                  <div key={r} className="bg-white rounded-xl border border-gray-200 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-semibold text-gray-700">{r} · 经销商健康度</h3>
-                      <div className="flex items-center gap-2 text-[10px]">
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />{rDists.filter(d => d.status === 'green').length}</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />{rDists.filter(d => d.status === 'yellow').length}</span>
-                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />{rDists.filter(d => d.status === 'red').length}</span>
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      {rDists.map((dh) => (
-                        <div key={dh.distributor.id} className={`flex items-center gap-3 p-2.5 rounded-lg border ${dh.status === 'red' ? 'border-red-200 bg-red-50/50' : dh.status === 'yellow' ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-gray-50/30'}`}>
-                          <div className="flex items-center gap-2 min-w-[80px]">
-                            <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${dh.status === 'red' ? 'bg-red-400' : dh.status === 'yellow' ? 'bg-amber-400' : 'bg-emerald-400'}`} />
-                            <div><p className="text-xs font-semibold text-gray-800">{dh.distributor.name}</p></div>
-                          </div>
-                          <div className="flex-1 grid grid-cols-4 gap-2 text-center">
-                            <div><p className="text-[10px] text-gray-400">出货</p><p className="text-xs font-bold text-gray-800">{dh.curSales}</p></div>
-                            <div><p className="text-[10px] text-gray-400">环比</p><p className={`text-xs font-bold ${dh.changePct >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{dh.changePct >= 0 ? '+' : ''}{dh.changePct.toFixed(0)}%</p></div>
-                            <div><p className="text-[10px] text-gray-400">库存</p><p className="text-xs font-bold text-gray-700">{dh.dStock}</p></div>
-                            <div><p className="text-[10px] text-gray-400">存销比</p><p className={`text-xs font-bold ${dh.stockRatio > 4 ? 'text-amber-600' : 'text-gray-600'}`}>{dh.stockRatio >= 99 ? '∞' : dh.stockRatio.toFixed(1)}x</p></div>
-                          </div>
-                          {dh.problem && <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-medium ${dh.status === 'red' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>{dh.problem}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* ABC 分类 */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">ABC 分类</h3>
+                {(() => {
+                  const sorted = [...productSales].sort((a,b) => b.sales - a.sales);
+                  const total = sorted.reduce((s,x) => s + x.sales, 0);
+                  let cum = 0; const abc = { A: 0, B: 0, C: 0 };
+                  sorted.forEach(x => { cum += x.sales; const pct = cum / total; if (pct <= 0.7) abc.A++; else if (pct <= 0.9) abc.B++; else abc.C++; });
+                  return [{k:'A',v:abc.A,c:'bg-emerald-500',l:'高销量'},{k:'B',v:abc.B,c:'bg-amber-500',l:'中等'},{k:'C',v:abc.C,c:'bg-red-400',l:'滞销'}].map(x => (
+                    <div key={x.k} className="flex items-center gap-2 text-xs mb-2"><span className="font-bold text-gray-700 w-4">{x.k}</span><div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${x.c}`} style={{width:`${(x.v/Math.max(products.length,1))*100}%`}} /></div><span className="text-gray-500 w-14 text-right">{x.v} SKU</span></div>
+                  ));
+                })()}
+              </div>
+              {/* 库存价值 */}
+              <div className="bg-white rounded-xl border border-gray-200 p-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2">库存价值</h3>
+                {(() => {
+                  const cv = categorySales.map(c => {
+                    const st = snapshots.filter(s => s.weekStart === activeDate && getProductById(s.productId)?.category === c.category).reduce((a,s)=>{const p=getProductById(s.productId);return a+s.quantity*(p?.unitPrice||0)},0);
+                    return {n:c.category.length>6?c.category.slice(0,5)+'…':c.category,v:Math.round(st)};
+                  }).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+                  const mv = Math.max(...cv.map(x=>x.v),1);
+                  return cv.slice(0,5).map(x=><div key={x.n} className="flex items-center gap-2 text-xs mb-1.5"><span className="text-gray-600 w-14 truncate">{x.n}</span><div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-violet-400 rounded-full" style={{width:`${(x.v/mv)*100}%`}} /></div><span className="text-gray-500 text-[10px]">¥{(x.v/10000).toFixed(1)}万</span></div>);
+                })()}
+                <div className="pt-2 border-t border-gray-100 text-xs font-bold text-gray-700">总 ¥{(snapshots.filter(s=>s.weekStart===activeDate).reduce((a,s)=>{const p=getProductById(s.productId);return a+s.quantity*(p?.unitPrice||0)},0)/10000).toFixed(1)}万</div>
+              </div>
             </div>
           </div>
 
-          {/* Row 2: 品类分析 + 单客户分析 */}
+          {/* Row 2: 经销商健康度 - 左右并排 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {regionList.map(r => {
+              const rDists = distHealth.filter(dh => distributors.find(d => d.id === dh.distributor.id)?.region === r);
+              if (rDists.length === 0) return <div key={r} className="bg-white rounded-xl border border-gray-200 p-4 text-center text-sm text-gray-400 py-8">{r} · 暂无经销商数据</div>;
+              return (
+                <div key={r} className="bg-white rounded-xl border border-gray-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold text-gray-700">{r} · 健康度</h3>
+                    <div className="flex items-center gap-2 text-[10px]">
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />{rDists.filter(d => d.status === 'green').length}</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />{rDists.filter(d => d.status === 'yellow').length}</span>
+                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />{rDists.filter(d => d.status === 'red').length}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {rDists.map((dh) => (
+                      <div key={dh.distributor.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${dh.status === 'red' ? 'border-red-200 bg-red-50/50' : dh.status === 'yellow' ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-gray-50/30'}`}>
+                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dh.status==='red'?'bg-red-400':dh.status==='yellow'?'bg-amber-400':'bg-emerald-400'}`} />
+                        <span className="font-semibold text-gray-800 w-20 truncate">{dh.distributor.name}</span>
+                        <span className="text-gray-500">出货 <b className="text-gray-800">{dh.curSales}</b></span>
+                        <span className={`font-bold ${dh.changePct>=0?'text-emerald-600':'text-red-500'}`}>{dh.changePct>=0?'+':''}{dh.changePct.toFixed(0)}%</span>
+                        <span className="text-gray-500">库存 <b>{dh.dStock}</b></span>
+                        {dh.problem && <span className={`ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-medium ${dh.status==='red'?'bg-red-100 text-red-600':'bg-amber-100 text-amber-600'}`}>{dh.problem}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Row 3: 品类分析 + 单客户分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">品类销售分析</h3>
@@ -434,61 +452,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Row 3: ABC分类 + 库存价值 + 周转排行 + 动销率 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* ABC 分类 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">ABC 分类</h3>
-              {(() => {
-                const sorted = [...productSales].sort((a,b) => b.sales - a.sales);
-                const total = sorted.reduce((s,x) => s + x.sales, 0);
-                let cum = 0;
-                const abc = { A: 0, B: 0, C: 0 };
-                sorted.forEach(x => { cum += x.sales; const pct = cum / total; if (pct <= 0.7) abc.A++; else if (pct <= 0.9) abc.B++; else abc.C++; });
-                return (
-                  <div className="space-y-2">
-                    {[{k:'A',v:abc.A,c:'bg-emerald-500',label:'高销量'},{k:'B',v:abc.B,c:'bg-amber-500',label:'中等'},{k:'C',v:abc.C,c:'bg-red-400',label:'滞销'}].map(x => (
-                      <div key={x.k} className="flex items-center gap-2 text-xs">
-                        <span className="font-bold text-gray-700 w-6">{x.k}</span>
-                        <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full ${x.c}`} style={{width:`${(x.v/Math.max(products.length,1))*100}%`}} />
-                        </div>
-                        <span className="text-gray-500 w-16 text-right">{x.v} SKU ({x.label})</span>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* 库存价值分布 */}
-            <div className="bg-white rounded-xl border border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-2">库存价值</h3>
-              {(() => {
-                const catValue = categorySales.map(c => {
-                  const stock = snapshots.filter(s => s.weekStart === activeDate).filter(s => { const p = getProductById(s.productId); return p?.category === c.category; }).reduce((a,s) => { const p = getProductById(s.productId); return a + s.quantity * (p?.unitPrice||0); }, 0);
-                  return { name: c.category.length > 6 ? c.category.slice(0,5)+'…' : c.category, value: Math.round(stock) };
-                }).filter(x => x.value > 0).sort((a,b) => b.value - a.value);
-                const maxV = Math.max(...catValue.map(x => x.value), 1);
-                return (
-                  <div className="space-y-1.5">
-                    {catValue.slice(0, 6).map(x => (
-                      <div key={x.name} className="flex items-center gap-2 text-xs">
-                        <span className="text-gray-600 w-14 truncate">{x.name}</span>
-                        <div className="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className="h-full bg-violet-400 rounded-full" style={{width:`${(x.value/maxV)*100}%`}} />
-                        </div>
-                        <span className="text-gray-500 text-[10px]">¥{(x.value/10000).toFixed(1)}万</span>
-                      </div>
-                    ))}
-                    <div className="pt-2 border-t border-gray-100 text-xs font-bold text-gray-700">
-                      总价值 ¥{(catValue.reduce((s,x)=>s+x.value,0)/10000).toFixed(1)}万
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-
+          {/* Row 4: 周转排行 + 动销率 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* 周转天数排行 */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-2">周转天数 Top 5</h3>
@@ -536,7 +501,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Row 4: 安全库存预警 + 滞销预警 */}
+          {/* Row 5: 安全库存 + 滞销 + 趋势 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             {/* 安全库存预警 */}
             <div className="bg-white rounded-xl border border-gray-200 p-4">
