@@ -87,8 +87,14 @@ export default function ExpenseMapPage() {
   const maxTotal = Math.max(...stores.map(s => s.total), 1);
   const activeStores = stores.filter(s => s.total > 0);
 
+  // Always show all store locations on map (even without expenses)
+  const allStoresWithCoords = stores;
+
   // Route line connecting stores with expenses
   const routeLine = activeStores.length >= 2 ? activeStores.map(s => [s.lat, s.lng] as [number, number]) : null;
+
+  // If no expense data at all, still show all store locations
+  const hasCoords = allStoresWithCoords.length > 0;
 
   const catOptions = [
     { key: 'all', label: '全部费用', color: '#3b82f6' },
@@ -137,15 +143,15 @@ export default function ExpenseMapPage() {
         </div>
 
         {/* Map */}
-        {activeStores.length > 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" style={{ height: '500px' }}>
-            <MapContainer center={[39.9, 119.5]} zoom={10} style={{ height: '100%', width: '100%' }} scrollWheelZoom={true}>
+        {hasCoords ? (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden" style={{ height: '500px', minHeight: '500px' }}>
+            <MapContainer center={[39.9, 119.5]} zoom={10} style={{ height: '100%', width: '100%', minHeight: '500px' }} scrollWheelZoom={true}>
               <TileLayer
                 attribution='&copy; 高德地图'
                 url="https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
                 subdomains="1234"
               />
-              <MapBounds stores={activeStores} />
+              <MapBounds stores={activeStores.length > 0 ? activeStores : allStoresWithCoords} />
 
               {/* Route line */}
               {routeLine && (
@@ -155,26 +161,31 @@ export default function ExpenseMapPage() {
                 />
               )}
 
-              {/* Markers */}
-              {activeStores.map(s => {
-                const size = 18 + Math.round((s.total / maxTotal) * 22);
+              {/* Store markers (always show all stores) */}
+              {allStoresWithCoords.map(s => {
+                const hasExpense = s.total > 0;
+                const size = hasExpense ? 18 + Math.round((s.total / maxTotal) * 22) : 14;
                 const catColor = catOptions.find(c => c.key === selectedCat)?.color || '#3b82f6';
-                const color = selectedCat === 'all' ? '#00704A' : catColor;
+                const color = hasExpense ? (selectedCat === 'all' ? '#00704A' : catColor) : '#cbd5e1';
                 const icon = createIcon(color, size);
                 return (
                   <Marker key={s.name} position={[s.lat, s.lng]} icon={icon}>
                     <Popup>
-                      <div className="text-sm min-w-[180px]">
+                      <div className="text-sm min-w-[160px]">
                         <p className="font-bold text-gray-800 mb-2">{s.name}</p>
-                        <div className="space-y-1 text-xs">
-                          {s.display > 0 && <div className="flex justify-between"><span>陈列费</span><span className="font-medium">{fmt(s.display)}</span></div>}
-                          {s.promotion > 0 && <div className="flex justify-between"><span>促销费</span><span className="font-medium">{fmt(s.promotion)}</span></div>}
-                          {s.salary > 0 && <div className="flex justify-between"><span>人员工资</span><span className="font-medium">{fmt(s.salary)}</span></div>}
-                          {s.project > 0 && <div className="flex justify-between"><span>专案费用</span><span className="font-medium">{fmt(s.project)}</span></div>}
-                          {s.commitment > 0 && <div className="flex justify-between"><span>承诺费用</span><span className="font-medium">{fmt(s.commitment)}</span></div>}
-                          {s.other > 0 && <div className="flex justify-between"><span>其他</span><span className="font-medium">{fmt(s.other)}</span></div>}
-                          <div className="flex justify-between font-bold pt-1 border-t border-gray-100"><span>合计</span><span style={{color}}>{fmt(s.total)}</span></div>
-                        </div>
+                        {hasExpense ? (
+                          <div className="space-y-1 text-xs">
+                            {s.display > 0 && <div className="flex justify-between"><span>陈列费</span><span className="font-medium">{fmt(s.display)}</span></div>}
+                            {s.promotion > 0 && <div className="flex justify-between"><span>促销费</span><span className="font-medium">{fmt(s.promotion)}</span></div>}
+                            {s.salary > 0 && <div className="flex justify-between"><span>人员工资</span><span className="font-medium">{fmt(s.salary)}</span></div>}
+                            {s.project > 0 && <div className="flex justify-between"><span>专案费用</span><span className="font-medium">{fmt(s.project)}</span></div>}
+                            {s.commitment > 0 && <div className="flex justify-between"><span>承诺费用</span><span className="font-medium">{fmt(s.commitment)}</span></div>}
+                            {s.other > 0 && <div className="flex justify-between"><span>其他</span><span className="font-medium">{fmt(s.other)}</span></div>}
+                            <div className="flex justify-between font-bold pt-1 border-t border-gray-100"><span>合计</span><span style={{ color }}>{fmt(s.total)}</span></div>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-gray-400">该月暂无费用数据</p>
+                        )}
                       </div>
                     </Popup>
                   </Marker>
@@ -186,8 +197,7 @@ export default function ExpenseMapPage() {
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center h-[400px] text-gray-400">
             <div className="text-center">
               <p className="text-lg mb-1">🗺️</p>
-              <p className="text-sm">该月暂无费用数据</p>
-              <p className="text-xs mt-1">录入费用后地图自动显示</p>
+              <p className="text-sm">请先在经销商管理中设置门店经纬度</p>
             </div>
           </div>
         )}
