@@ -342,41 +342,52 @@ export default function Dashboard() {
                 const rSales = distributorSales.filter(s => rDists.some(d => d.id === s.distributorId));
                 const rTotalSales = rSales.reduce((s, x) => s + Math.max(0, x.sales), 0);
                 const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rDists.some(d => d.id === s.distributorId)).reduce((a, s) => a + s.quantity, 0);
+                const isQhd = r === '秦皇岛';
                 return (
-                  <div key={r} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-                    <div className="flex items-center gap-2 mb-3">
-                      <div className={`w-3 h-3 rounded-full ${r === '秦皇岛' ? 'bg-blue-400' : 'bg-amber-400'}`} />
-                      <h3 className="text-sm font-bold text-gray-700">📍 {r}</h3>
-                      <span className="text-[10px] text-gray-400 ml-auto">{rDists.length} 个经销商</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-400">销量</p>
-                        <p className="text-lg font-bold text-gray-800">{rTotalSales}</p>
-                        <p className="text-[9px] text-gray-400">件</p>
+                  <div key={r} className={`relative overflow-hidden rounded-2xl shadow-sm border ${isQhd ? 'bg-gradient-to-br from-blue-50 to-white border-blue-100' : 'bg-gradient-to-br from-amber-50 to-white border-amber-100'}`}>
+                    <div className={`h-1.5 ${isQhd ? 'bg-gradient-to-r from-blue-400 to-blue-600' : 'bg-gradient-to-r from-amber-400 to-amber-600'}`} />
+                    <div className="p-5">
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl">{isQhd ? '🌊' : '🏭'}</span>
+                          <h3 className="text-base font-bold text-gray-800">{r}</h3>
+                        </div>
+                        <span className="text-xs text-gray-400">{rDists.length} 个经销商</span>
                       </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-400">库存</p>
-                        <p className="text-lg font-bold text-gray-800">{rTotalStock}</p>
-                        <p className="text-[9px] text-gray-400">件</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-[10px] text-gray-400">动销率</p>
-                        <p className="text-lg font-bold text-gray-800">{rTotalStock > 0 ? Math.round((rTotalSales / (rTotalSales + rTotalStock)) * 100) : 0}%</p>
-                      </div>
-                    </div>
-                    <div className="mt-3 space-y-1">
-                      {rDists.map(d => {
-                        const ds = distributorSales.find(s => s.distributorId === d.id);
-                        const sales = ds ? Math.max(0, ds.sales) : 0;
-                        const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
-                        return (
-                          <div key={d.id} className="flex items-center justify-between text-xs">
-                            <span className="text-gray-600">{d.name}</span>
-                            <span className="text-gray-400">销量 {sales} · 库存 {stock}</span>
+                      <div className="flex items-end gap-6 mb-4">
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">销量</p>
+                          <p className={`text-2xl font-bold ${isQhd ? 'text-blue-600' : 'text-amber-600'}`}>{rTotalSales.toLocaleString()}</p>
+                          <p className="text-[10px] text-gray-400">件</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase tracking-wider">库存</p>
+                          <p className="text-2xl font-bold text-gray-700">{rTotalStock.toLocaleString()}</p>
+                          <p className="text-[10px] text-gray-400">件</p>
+                        </div>
+                        <div className="flex-1 text-right">
+                          <div className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${rTotalSales > 0 ? (isQhd ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700') : 'bg-gray-100 text-gray-400'}`}>
+                            {rTotalStock > 0 ? Math.round((rTotalSales / (rTotalSales + rTotalStock)) * 100) : 0}% 动销
                           </div>
-                        );
-                      })}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 border-t border-gray-100 pt-3">
+                        {rDists.map(d => {
+                          const ds = distributorSales.find(s => s.distributorId === d.id);
+                          const sales = ds ? Math.max(0, ds.sales) : 0;
+                          const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
+                          const maxS = Math.max(...rDists.map(x => { const xs = distributorSales.find(s => s.distributorId === x.id); return xs ? Math.max(0, xs.sales) : 0; }), 1);
+                          return (
+                            <div key={d.id} className="flex items-center gap-2 text-xs">
+                              <span className="w-16 text-gray-600 truncate">{d.name}</span>
+                              <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${isQhd ? 'bg-blue-400' : 'bg-amber-400'}`} style={{ width: `${(sales / maxS) * 100}%` }} />
+                              </div>
+                              <span className="text-[10px] text-gray-400 w-24 text-right">销{sales} 存{stock}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 );
