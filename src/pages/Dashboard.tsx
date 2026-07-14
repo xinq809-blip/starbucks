@@ -328,8 +328,8 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">产品销售排行 Top 10</h3>
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={productRanking.slice(0, 8)} layout="vertical" margin={{ left: 5 }}>
+              <ResponsiveContainer width="100%" height={180}>
+                <BarChart data={productRanking.slice(0, 6)} layout="vertical" margin={{ left: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis type="number" tick={{ fontSize: 10 }} />
                   <YAxis dataKey="shortName" type="category" tick={(props: any) => {
