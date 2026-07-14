@@ -30,6 +30,15 @@ export default function Dashboard() {
   const hasSales = weeks.length >= 2;
 
   const [tab, setTab] = useState<Tab>('early');
+  const [region, setRegion] = useState('all');
+
+  // Filter distributors by region
+  const dists = useMemo(() => {
+    if (region === 'all') return distributors;
+    return distributors.filter(d => d.region === region);
+  }, [distributors, region]);
+
+  const regions = useMemo(() => [...new Set(dists.map(d => d.region || '其他'))].filter(Boolean), [distributors]);
 
   // Pick relevant date based on period tab
   const activeDate = useMemo(() => {
@@ -104,7 +113,7 @@ export default function Dashboard() {
     const prev2Week = weeks.length > 2 ? weeks[weeks.length - 3] : null;
     const prev2Sales = prev2Week ? getDistributorWeeklySales(snapshots, prev2Week, restocks) : [];
 
-    return distributors.map((d) => {
+    return dists.map((d) => {
       const cur = distributorSales.find((s) => s.distributorId === d.id);
       const curSales = cur ? Math.max(0, cur.sales) : 0;
       const prev = prevSales.find((s) => s.distributorId === d.id);
@@ -237,7 +246,7 @@ export default function Dashboard() {
     });
   }, [curMonth]);
 
-  const mDistChart = useMemo(() => distributors.map((d) => {
+  const mDistChart = useMemo(() => dists.map((d) => {
     const lastWeek = weeks.filter((w) => w.startsWith(currentMonth)).reverse()[0];
     const dStock = lastWeek ? snapshots.filter((s) => s.weekStart === lastWeek && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0) : 0;
     return { name: d.name, sales: curMonth?.distMap[d.id] ?? 0, stock: dStock };
@@ -305,6 +314,13 @@ export default function Dashboard() {
           <p className="text-[11px] md:text-xs text-gray-400">最新盘点: {getWeekLabel(activeDate)} · {weeks.length}周 · {months.length}月</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {regions.length > 1 && (
+            <select value={region} onChange={e => setRegion(e.target.value)}
+              className="border border-gray-200 rounded-lg px-2 py-1 text-xs font-medium bg-white">
+              <option value="all">全部区域</option>
+              {regions.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          )}
           <button onClick={exportCSV} className="flex items-center gap-1 px-2 py-1.5 text-[11px] md:text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"><Download size={13} /><span className="hidden sm:inline">导出</span></button>
           <button onClick={printReport} className="flex items-center gap-1 px-2 py-1.5 text-[11px] md:text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"><Printer size={13} /><span className="hidden sm:inline">打印</span></button>
           <div className="flex bg-gray-100 rounded-lg p-0.5">
@@ -328,7 +344,7 @@ export default function Dashboard() {
             <KpiCard label="库存价值" value={'¥' + (invValue / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeDate)} icon={DollarSign} color="text-blue-500" bg="bg-blue-50" />
             <KpiCard label="周转天数" value={turnoverDays !== null ? turnoverDays + ' 天' : '—'} sub="库存/日均销量" icon={Clock} color="text-cyan-500" bg="bg-cyan-50" />
             <KpiCard label="销量环比" value={(salesChange >= 0 ? '+' : '') + salesChange.toFixed(1) + '%'} sub="较上周" icon={salesChange >= 0 ? TrendingUp : TrendingDown} color={salesChange >= 0 ? 'text-emerald-500' : 'text-red-500'} bg={salesChange >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
-            <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
+            <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${dists.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
           {/* Row 1: 产品排行 + 经销商占比饼图 */}
@@ -447,7 +463,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-gray-700">单客户分析</h3>
                 <select value={selectedDist} onChange={(e) => setSelectedDist(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-starbucks-500/20">
-                  {distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {dists.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
               <div className="max-h-[260px] overflow-y-auto scrollbar-thin">
