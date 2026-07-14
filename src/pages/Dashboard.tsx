@@ -17,7 +17,7 @@ import {
 
 const PIE_COLORS = ['#00704A', '#2ea86e', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#6366f1'];
 
-type Tab = 'weekly' | 'monthly';
+type Tab = 'early' | 'late' | 'monthly';
 
 export default function Dashboard() {
   const { state, saveTarget } = useApp();
@@ -25,50 +25,64 @@ export default function Dashboard() {
 
   const weeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
   const months = useMemo(() => getAvailableMonths(snapshots), [snapshots]);
-  const currentWeek = weeks.length > 0 ? weeks[weeks.length - 1] : getCurrentWeekStart();
-  const prevWeek = weeks.length > 1 ? weeks[weeks.length - 2] : null;
-  const currentMonth = months.length > 0 ? months[months.length - 1] : currentWeek.slice(0, 7);
+  const currentMonth = months.length > 0 ? months[months.length - 1] : (weeks.length > 0 ? weeks[weeks.length - 1] : getCurrentWeekStart()).slice(0, 7);
   const hasData = weeks.length > 0;
   const hasSales = weeks.length >= 2;
 
-  const [tab, setTab] = useState<Tab>('weekly');
+  const [tab, setTab] = useState<Tab>('early');
+
+  // Pick relevant date based on period tab
+  const activeDate = useMemo(() => {
+    if (weeks.length === 0) return getCurrentWeekStart();
+    const month = currentMonth;
+    const earlyDates = weeks.filter(w => w.startsWith(month) && parseInt(w.slice(8,10)) <= 10);
+    const lateDates = weeks.filter(w => w.startsWith(month) && parseInt(w.slice(8,10)) > 10);
+    if (tab === 'early' && earlyDates.length > 0) return earlyDates[earlyDates.length - 1];
+    if (tab === 'late' && lateDates.length > 0) return lateDates[lateDates.length - 1];
+    return weeks[weeks.length - 1];
+  }, [tab, weeks, currentMonth]);
+
+  const prevDate = useMemo(() => {
+    const idx = weeks.indexOf(activeDate);
+    return idx > 0 ? weeks[idx - 1] : null;
+  }, [activeDate, weeks]);
   const [selectedDist, setSelectedDist] = useState(distributors[0]?.id ?? '');
   const [targetInput, setTargetInput] = useState('');
   const [editingTarget, setEditingTarget] = useState(false);
 
   // ====== 通用数据 ======
-  const invValue = hasData ? getInventoryValue(snapshots, currentWeek) : 0;
-  const turnoverDays = hasData ? getTurnoverDays(snapshots, currentWeek, restocks) : null;
+  const invValue = hasData ? getInventoryValue(snapshots, activeDate) : 0;
+  const turnoverDays = hasData ? getTurnoverDays(snapshots, activeDate, restocks) : null;
   const slowMoving = useMemo(() => hasSales ? getSlowMoving(snapshots, restocks) : [], [hasSales, snapshots, restocks]);
-  const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, currentWeek, restocks) : [], [currentWeek, hasSales]);
+  const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
 
   // ====== 周报数据 ======
-  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, currentWeek, restocks) : [], [currentWeek, hasSales]);
-  const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, currentWeek, restocks) : [], [currentWeek, hasSales]);
-  const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, currentWeek, restocks) : [], [currentWeek, hasSales]);
+  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
+  const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
+  const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
 
-  const totalStock = hasData ? getTotalStock(snapshots, currentWeek) : 0;
+  const totalStock = hasData ? getTotalStock(snapshots, activeDate) : 0;
   const totalSales = weeklySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
   const totalSalesValue = weeklySales.reduce((s, r) => {
     const p = getProductById(r.productId);
     return s + (p ? Math.max(0, r.sales) * p.unitPrice : 0);
   }, 0);
 
-  const prevWeeklySales = useMemo(() => {
-    return prevWeek ? getWeeklySales(snapshots, prevWeek, restocks) : [];
-  }, [prevWeek, restocks]);
-  const prevTotalSales = prevWeeklySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
+  const prevDatelySales = useMemo(() => {
+    return prevDate ? getWeeklySales(snapshots, prevDate, restocks) : [];
+  }, [prevDate, restocks]);
+  const prevTotalSales = prevDatelySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
   const salesChange = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : 0;
   const activeProducts = productSales.filter((p) => p.sales > 0).length;
   const activeDistributors = distributorSales.filter((d) => d.sales > 0).length;
 
   // Last week ranking for comparison
   const prevProductRank = useMemo(() => {
-    if (!prevWeek) return new Map<string, number>();
-    const prevSales = getProductWeeklySales(snapshots, prevWeek, restocks);
+    if (!prevDate) return new Map<string, number>();
+    const prevSales = getProductWeeklySales(snapshots, prevDate, restocks);
     const ranked = [...prevSales].sort((a, b) => b.sales - a.sales);
     return new Map(ranked.map((item, i) => [item.productId, i + 1]));
-  }, [prevWeek, restocks]);
+  }, [prevDate, restocks]);
 
   const productRanking = useMemo(() => [...productSales].sort((a, b) => b.sales - a.sales).map((ps, i) => {
     const p = getProductById(ps.productId);
@@ -85,8 +99,8 @@ export default function Dashboard() {
 
   // Distributor health analysis
   const distHealth = useMemo(() => {
-    const prevWeek = weeks.length > 1 ? weeks[weeks.length - 2] : null;
-    const prevSales = prevWeek ? getDistributorWeeklySales(snapshots, prevWeek, restocks) : [];
+    const prevDate = weeks.length > 1 ? weeks[weeks.length - 2] : null;
+    const prevSales = prevDate ? getDistributorWeeklySales(snapshots, prevDate, restocks) : [];
     const prev2Week = weeks.length > 2 ? weeks[weeks.length - 3] : null;
     const prev2Sales = prev2Week ? getDistributorWeeklySales(snapshots, prev2Week, restocks) : [];
 
@@ -99,7 +113,7 @@ export default function Dashboard() {
       const prev2S = prev2 ? Math.max(0, prev2.sales) : 0;
 
       const dStock = hasData
-        ? snapshots.filter((s) => s.weekStart === currentWeek && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0)
+        ? snapshots.filter((s) => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0)
         : 0;
 
       // Change %
@@ -132,7 +146,7 @@ export default function Dashboard() {
       if (declineWeeks >= 2) { status = 'red'; problem = `连续${declineWeeks}周下滑`; }
       else if (stockRatio > 8) { status = 'red'; problem = '库存积压严重'; }
       else if (curSales === 0 && dStock > 50) { status = 'red'; problem = '本周未出货'; }
-      else if (declineWeeks === 1) { status = 'yellow'; problem = '本周销量下滑'; }
+      else if (declineWeeks === 1) { status = 'yellow'; problem = '本期销量下滑'; }
       else if (stockRatio > 4) { status = 'yellow'; problem = '库存偏高'; }
       else if (curSales === 0) { status = 'yellow'; problem = '本周无动销'; }
 
@@ -149,7 +163,7 @@ export default function Dashboard() {
         share: totalSales > 0 ? (curSales / totalSales) * 100 : 0,
       };
     }).sort((a, b) => b.curSales - a.curSales);
-  }, [distributors, distributorSales, snapshots, currentWeek, weeks, restocks, hasData, totalSales]);
+  }, [distributors, distributorSales, snapshots, activeDate, weeks, restocks, hasData, totalSales]);
 
   const weeklyTrend = useMemo(() => {
     if (weeks.length < 2) return [];
@@ -163,7 +177,7 @@ export default function Dashboard() {
 
   const distDrillDown = useMemo(() => {
     if (!hasSales) return { products: [], trend: [] };
-    const ws = getWeeklySales(snapshots, currentWeek, restocks);
+    const ws = getWeeklySales(snapshots, activeDate, restocks);
     const detail = products.map((p) => {
       const row = ws.find((r) => r.productId === p.id && r.distributorId === selectedDist);
       return { name: p.name, shortName: p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name, sales: row ? Math.max(0, row.sales) : 0, prevQty: row?.prevQty ?? 0, currQty: row?.currQty ?? 0 };
@@ -173,7 +187,7 @@ export default function Dashboard() {
       return { week: getWeekLabel(w), sales: ws.filter((r) => r.distributorId === selectedDist).reduce((sum, r) => sum + Math.max(0, r.sales), 0) };
     });
     return { products: detail, trend };
-  }, [selectedDist, currentWeek, weeks, hasSales, products]);
+  }, [selectedDist, activeDate, weeks, hasSales, products]);
 
   // ====== 月报数据 ======
   const monthlyData = useMemo(() => months.map((m) => {
@@ -240,7 +254,7 @@ export default function Dashboard() {
 
   // ====== CSV Export ======
   const exportCSV = () => {
-    const ws = getWeeklySales(snapshots, currentWeek, restocks);
+    const ws = getWeeklySales(snapshots, activeDate, restocks);
     const rows = [['产品', 'SKU', '经销商', '上周库存', '本周库存', '销量', '单价', '销售额']];
     for (const r of ws) {
       const p = getProductById(r.productId);
@@ -251,7 +265,7 @@ export default function Dashboard() {
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url; a.download = `周报_${currentWeek}.csv`; a.click();
+    a.href = url; a.download = `周报_${activeDate}.csv`; a.click();
     URL.revokeObjectURL(url);
   };
 
@@ -288,26 +302,30 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">数据看板</h1>
-          <p className="text-[11px] md:text-xs text-gray-400">最新盘点: {getWeekLabel(currentWeek)} · {weeks.length}周 · {months.length}月</p>
+          <p className="text-[11px] md:text-xs text-gray-400">最新盘点: {getWeekLabel(activeDate)} · {weeks.length}周 · {months.length}月</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={exportCSV} className="flex items-center gap-1 px-2 py-1.5 text-[11px] md:text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"><Download size={13} /><span className="hidden sm:inline">导出</span></button>
           <button onClick={printReport} className="flex items-center gap-1 px-2 py-1.5 text-[11px] md:text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"><Printer size={13} /><span className="hidden sm:inline">打印</span></button>
           <div className="flex bg-gray-100 rounded-lg p-0.5">
-            {(['weekly', 'monthly'] as Tab[]).map((t) => (
-              <button key={t} onClick={() => setTab(t)} className={`px-2.5 md:px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all ${tab === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{t === 'weekly' ? '周报' : '月报'}</button>
+            {([
+              ['early', '上旬'],
+              ['late', '下旬'],
+              ['monthly', '月报'],
+            ] as [Tab, string][]).map(([t, label]) => (
+              <button key={t} onClick={() => setTab(t)} className={`px-2.5 md:px-3 py-1.5 rounded-md text-xs md:text-sm font-medium transition-all ${tab === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{label}</button>
             ))}
           </div>
         </div>
       </div>
 
-      {tab === 'weekly' ? (
+      {(tab === 'early' || tab === 'late') ? (
         <>
           {/* 周报 KPI: 6 cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
-            <KpiCard label="本周销量" value={totalSales.toLocaleString() + ' 件'} sub={`¥${Math.round(totalSalesValue).toLocaleString()}`} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
-            <KpiCard label="总库存" value={totalStock.toLocaleString() + ' 件'} sub={getWeekLabel(currentWeek)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
-            <KpiCard label="库存价值" value={'¥' + (invValue / 10000).toFixed(1) + '万'} sub={getWeekLabel(currentWeek)} icon={DollarSign} color="text-blue-500" bg="bg-blue-50" />
+            <KpiCard label="本期销量" value={totalSales.toLocaleString() + ' 件'} sub={`¥${Math.round(totalSalesValue).toLocaleString()}`} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
+            <KpiCard label="总库存" value={totalStock.toLocaleString() + ' 件'} sub={getWeekLabel(activeDate)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
+            <KpiCard label="库存价值" value={'¥' + (invValue / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeDate)} icon={DollarSign} color="text-blue-500" bg="bg-blue-50" />
             <KpiCard label="周转天数" value={turnoverDays !== null ? turnoverDays + ' 天' : '—'} sub="库存/日均销量" icon={Clock} color="text-cyan-500" bg="bg-cyan-50" />
             <KpiCard label="销量环比" value={(salesChange >= 0 ? '+' : '') + salesChange.toFixed(1) + '%'} sub="较上周" icon={salesChange >= 0 ? TrendingUp : TrendingDown} color={salesChange >= 0 ? 'text-emerald-500' : 'text-red-500'} bg={salesChange >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
@@ -493,10 +511,10 @@ export default function Dashboard() {
           </div>
 
           {/* Row 4: 椰椰拿铁 & P450 黑咖啡 重点产品分析 */}
-          <FocusProducts snapshots={snapshots} restocks={restocks} distributors={distributors} currentWeek={currentWeek} weeks={weeks} />
+          <FocusProducts snapshots={snapshots} restocks={restocks} distributors={distributors} activeDate={activeDate} weeks={weeks} />
 
           {/* Row 5: 经销商排名 */}
-          <DistRanking snapshots={snapshots} restocks={restocks} currentWeek={currentWeek} weeks={weeks} products={products} />
+          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} products={products} />
         </>
       ) : (
         <>
@@ -656,7 +674,7 @@ export default function Dashboard() {
 }
 
 /* ==================== 经销商排名 ==================== */
-function DistRanking({ snapshots, restocks, currentWeek, weeks, products }: any) {
+function DistRanking({ snapshots, restocks, activeDate, weeks, products }: any) {
   const dists = useMemo(() => {
     try { const r = localStorage.getItem('sb_distributors_v2'); if (r) return JSON.parse(r); } catch {}
     return [
@@ -667,12 +685,12 @@ function DistRanking({ snapshots, restocks, currentWeek, weeks, products }: any)
 
   const ranking = useMemo(() => {
     if (weeks.length < 2) return [];
-    const prevWeek = weeks[weeks.length - 2];
+    const prevDate = weeks[weeks.length - 2];
     return dists.map((d: any) => {
-      const ws = getWeeklySales(snapshots, currentWeek, restocks);
+      const ws = getWeeklySales(snapshots, activeDate, restocks);
       const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
-      const stock = snapshots.filter((s: any) => s.weekStart === currentWeek && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
-      const prevWs = getWeeklySales(snapshots, prevWeek, restocks);
+      const stock = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
+      const prevWs = getWeeklySales(snapshots, prevDate, restocks);
       const prevSales = prevWs.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
       const value = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => {
         const p = products.find((x: any) => x.id === r.productId);
@@ -680,7 +698,7 @@ function DistRanking({ snapshots, restocks, currentWeek, weeks, products }: any)
       }, 0);
       return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0 };
     }).sort((a: any, b: any) => b.sales - a.sales);
-  }, [snapshots, restocks, currentWeek, weeks, dists]);
+  }, [snapshots, restocks, activeDate, weeks, dists]);
 
   if (ranking.length === 0) return null;
   const maxSales = Math.max(...ranking.map((r: any) => r.sales), 1);
@@ -718,7 +736,7 @@ function DistRanking({ snapshots, restocks, currentWeek, weeks, products }: any)
 }
 
 /* ==================== 重点产品分析 ==================== */
-function FocusProducts({ snapshots, restocks, distributors, currentWeek, weeks }: any) {
+function FocusProducts({ snapshots, restocks, distributors, activeDate, weeks }: any) {
 
   const products = [
     { id: 'p11', name: 'P450 黑咖啡', color: '#3b82f6', gradient: 'from-blue-500 to-indigo-500', bg: 'bg-blue-50', text: 'text-blue-700', icon: '☕' },
@@ -737,12 +755,12 @@ function FocusProducts({ snapshots, restocks, distributors, currentWeek, weeks }
           return { week: w.slice(5), sales: Math.max(0, prevTotal + wRestocks - currTotal), stock: currTotal };
         });
 
-        const currWeekData = snapshots.filter((s: any) => s.weekStart === currentWeek && s.productId === prod.id);
-        const prevWeekData = weeks.indexOf(currentWeek) > 0 ? snapshots.filter((s: any) => s.weekStart === weeks[weeks.indexOf(currentWeek) - 1] && s.productId === prod.id) : [];
+        const currWeekData = snapshots.filter((s: any) => s.weekStart === activeDate && s.productId === prod.id);
+        const prevDateData = weeks.indexOf(activeDate) > 0 ? snapshots.filter((s: any) => s.weekStart === weeks[weeks.indexOf(activeDate) - 1] && s.productId === prod.id) : [];
         const distData = distributors.map((d: any) => {
           const curr = currWeekData.find((s: any) => s.distributorId === d.id);
-          const prev = prevWeekData.find((s: any) => s.distributorId === d.id);
-          const r = (restocks || []).filter((x: any) => x.weekStart === currentWeek && x.productId === prod.id && x.distributorId === d.id).reduce((a: number, x: any) => a + x.quantity, 0);
+          const prev = prevDateData.find((s: any) => s.distributorId === d.id);
+          const r = (restocks || []).filter((x: any) => x.weekStart === activeDate && x.productId === prod.id && x.distributorId === d.id).reduce((a: number, x: any) => a + x.quantity, 0);
           return { name: d.name, prevQty: prev?.quantity ?? 0, currQty: curr?.quantity ?? 0, sales: Math.max(0, (prev?.quantity ?? 0) + r - (curr?.quantity ?? 0)) };
         });
 
