@@ -107,8 +107,14 @@ export default function DataEntry() {
   }
 
   const activeDistName = distributors.find(d => d.id === activeDist)?.name || '';
-  const enteredCount = Object.values(formData).filter(v => v >= 0).length;
   const totalCells = products.length * distributors.length;
+  const overallPct = Math.round((Object.values(formData).filter(v => v >= 0).length / totalCells) * 100);
+
+  // Per-distributor completion
+  const distProgress = distributors.map(d => {
+    const done = products.filter(p => formData[`${p.id}_${d.id}`] >= 0).length;
+    return { name: d.name, done, total: products.length, pct: Math.round((done / products.length) * 100) };
+  });
 
   return (
     <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto">
@@ -116,11 +122,16 @@ export default function DataEntry() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">库存录入</h1>
-          <p className="text-sm text-gray-400 mt-0.5">
-            {getWeekLabel(selectedDate)} · 已录入 {enteredCount}/{totalCells} 项
-          </p>
+          <p className="text-sm text-gray-400 mt-0.5">{getWeekLabel(selectedDate)}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          {/* Overall progress bar */}
+          <div className="hidden sm:flex items-center gap-2">
+            <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${overallPct === 100 ? 'bg-emerald-500' : 'bg-starbucks-500'}`} style={{ width: `${overallPct}%` }} />
+            </div>
+            <span className="text-xs text-gray-500 font-medium">{overallPct}%</span>
+          </div>
           {saved && <span className="flex items-center gap-1 text-sm text-emerald-600 font-medium"><Check size={16} />已保存</span>}
           <button onClick={handleSave} className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-sm">
             <Save size={16} />保存
@@ -160,16 +171,20 @@ export default function DataEntry() {
       {/* Distributor tabs */}
       <div className="flex gap-1 bg-gray-100 rounded-xl p-1">
         {distributors.map(d => {
-          const dCount = products.filter(p => formData[`${p.id}_${d.id}`] >= 0).length;
+          const prog = distProgress.find(dp => dp.name === d.name);
           return (
             <button key={d.id} onClick={() => setActiveDist(d.id)}
-              className={`flex-1 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+              className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeDist === d.id ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
-              {d.name}
-              <span className={`ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full ${activeDist === d.id ? 'bg-gray-100 text-gray-500' : 'bg-white/50 text-gray-400'}`}>
-                {dCount}/{products.length}
-              </span>
+              <div className="flex items-center justify-between mb-1">
+                <span>{d.name}</span>
+                <span className={`text-[10px] font-bold ${prog?.pct === 100 ? 'text-emerald-600' : 'text-gray-400'}`}>{prog?.pct}%</span>
+              </div>
+              <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+                <div className={`h-full rounded-full transition-all ${prog?.pct === 100 ? 'bg-emerald-500' : 'bg-starbucks-500'}`}
+                  style={{ width: `${prog?.pct || 0}%` }} />
+              </div>
             </button>
           );
         })}
@@ -267,80 +282,79 @@ function RestockSection({ selectedDate, products, distributors, restocks, addRes
   const [prodId, setProdId] = useState(products[0]?.id || '');
   const [distId, setDistId] = useState(distributors[0]?.id || '');
   const [qty, setQty] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
   const weekRestocks = restocks.filter((r: any) => r.weekStart === selectedDate);
+  const recentRestocks = showAll ? weekRestocks : weekRestocks.slice(-5);
 
   const handleAdd = () => {
     const n = parseInt(qty);
     if (!n || n <= 0) return;
-    addRestock({
-      id: 'R' + Date.now(),
-      date: selectedDate,
-      productId: prodId,
-      distributorId: distId,
-      quantity: n,
-      weekStart: selectedDate,
-    });
+    addRestock({ id: 'R' + Date.now(), date: selectedDate, productId: prodId, distributorId: distId, quantity: n, weekStart: selectedDate });
     setQty('');
   };
 
+  const distTotal = distributors.map((d: any) => {
+    const total = weekRestocks.filter((r: any) => r.distributorId === d.id).reduce((s: number, r: any) => s + r.quantity, 0);
+    return { name: d.name, total };
+  });
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-50 bg-gray-50/30">
-        <span className="text-xs font-semibold text-gray-500">进货/补货录入</span>
-        <span className="text-[10px] text-gray-400 ml-2">录入后自动加入销量计算：销量 = 上周库存 + 补货 − 本周库存</span>
+      <div className="px-4 py-3 border-b border-gray-50 bg-amber-50/50 flex items-center justify-between">
+        <div>
+          <span className="text-xs font-semibold text-gray-700">📦 进货/补货</span>
+          <span className="text-[10px] text-gray-400 ml-2">销量 = 上周库存 + 补货 − 本周库存</span>
+        </div>
+        {weekRestocks.length > 0 && (
+          <div className="flex items-center gap-2 text-[10px] text-gray-500">
+            合计 {weekRestocks.reduce((s: number, r: any) => s + r.quantity, 0)} 件 ·
+            {distTotal.filter((d: any) => d.total > 0).map((d: any) => <span key={d.name}>{d.name} {d.total}件 </span>)}
+          </div>
+        )}
       </div>
 
-      {/* Add form */}
-      <div className="p-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="text-[10px] text-gray-400 block mb-0.5">产品</label>
-          <select value={prodId} onChange={e => setProdId(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-            {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] text-gray-400 block mb-0.5">经销商</label>
-          <select value={distId} onChange={e => setDistId(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white">
-            {distributors.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
-        </div>
-        <div>
-          <label className="text-[10px] text-gray-400 block mb-0.5">进货数量</label>
-          <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)}
-            placeholder="件数" onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm" />
-        </div>
+      {/* Add form - compact */}
+      <div className="p-3 flex flex-wrap items-center gap-2">
+        <select value={prodId} onChange={e => setProdId(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white flex-1 min-w-[180px]">
+          {products.map((p: any) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+        <select value={distId} onChange={e => setDistId(e.target.value)}
+          className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm bg-white">
+          {distributors.map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+        </select>
+        <input type="number" min="1" value={qty} onChange={e => setQty(e.target.value)}
+          placeholder="数量" onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          className="w-20 border border-gray-200 rounded-lg px-3 py-1.5 text-sm" />
         <button onClick={handleAdd}
-          className="flex items-center gap-1 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">
-          <Plus size={14} />添加进货
+          className="flex items-center gap-1 px-3 py-1.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800">
+          <Plus size={14} />添加
         </button>
       </div>
 
-      {/* Recent restocks */}
+      {/* Recent restocks list */}
       {weekRestocks.length > 0 && (
-        <div className="border-t border-gray-50 max-h-[200px] overflow-y-auto scrollbar-thin">
-          <table className="w-full text-xs">
-            <thead><tr className="text-gray-400 border-b border-gray-50"><th className="text-left px-4 py-2">产品</th><th className="text-left px-4 py-2">经销商</th><th className="text-right px-4 py-2">数量</th><th className="text-center px-4 py-2 w-12"></th></tr></thead>
-            <tbody className="divide-y divide-gray-50">
-              {weekRestocks.map((r: any) => {
-                const p = products.find((x: any) => x.id === r.productId);
-                const d = distributors.find((x: any) => x.id === r.distributorId);
-                return (
-                  <tr key={r.id}>
-                    <td className="px-4 py-2 text-gray-700">{p?.name || r.productId}</td>
-                    <td className="px-4 py-2 text-gray-500">{d?.name || r.distributorId}</td>
-                    <td className="px-4 py-2 text-right font-medium text-gray-800">{r.quantity} 件</td>
-                    <td className="px-4 py-2 text-center">
-                      <button onClick={() => deleteRestock(r.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="border-t border-gray-50">
+          <div className="flex flex-wrap gap-1.5 p-3">
+            {recentRestocks.map((r: any) => {
+              const p = products.find((x: any) => x.id === r.productId);
+              const d = distributors.find((x: any) => x.id === r.distributorId);
+              return (
+                <div key={r.id} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5 text-xs group">
+                  <span className="font-medium text-gray-700 max-w-[120px] truncate">{p?.name || r.productId}</span>
+                  <span className="text-gray-400">→ {d?.name || r.distributorId}</span>
+                  <span className="font-bold text-gray-800">×{r.quantity}</span>
+                  <button onClick={() => deleteRestock(r.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={11} /></button>
+                </div>
+              );
+            })}
+            {weekRestocks.length > 5 && (
+              <button onClick={() => setShowAll(!showAll)} className="text-[10px] text-starbucks-600 hover:underline">
+                {showAll ? '收起' : `+${weekRestocks.length - 5} 条更多`}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>
