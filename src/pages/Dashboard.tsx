@@ -273,7 +273,7 @@ export default function Dashboard() {
           )}
 
           {/* 经销商出货排名 */}
-          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} products={products} distributors={distributors} />
+          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} distributors={distributors} />
 
           {/* Row 3: 品类分析 + 单客户分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
@@ -569,7 +569,7 @@ function SafeStockEdit() {
 }
 
 /* ==================== 经销商排名 ==================== */
-function DistRanking({ snapshots, restocks, activeDate, weeks, products, distributors }: any) {
+function DistRanking({ snapshots, restocks, activeDate, weeks, distributors }: any) {
   const dists = distributors && distributors.length > 0 ? distributors : [
     { id: 'd1', name: '山海关梁波' }, { id: 'd2', name: '杨子' },
     { id: 'd3', name: '速恩' }, { id: 'd4', name: '北戴河王总' },
@@ -579,18 +579,16 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
     if (weeks.length < 1) return [];
     const prevDate = weeks.length > 1 ? weeks[weeks.length - 2] : null;
     return dists.map((d: any) => {
-      const ws = getWeeklySales(snapshots, activeDate, restocks, dists);
-      const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
+      // 汇总计算：总进货 - 总库存 = 销量（解决部分产品只录进货没录库存的问题）
+      const totalRestock = (restocks || []).filter((r: any) => r.distributorId === d.id && r.date <= activeDate).reduce((a: number, r: any) => a + r.quantity, 0);
       const stock = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
       const snapCount = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).length;
-      const directRestocks = (restocks || []).filter((r: any) => r.distributorId === d.id && r.date <= activeDate).reduce((a: number, r: any) => a + r.quantity, 0);
-      const prevWs = prevDate ? getWeeklySales(snapshots, prevDate, restocks, dists) : [];
-      const prevSales = prevWs.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
-      const value = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => {
-        const p = products.find((x: any) => x.id === r.productId);
-        return a + Math.max(0, r.sales) * (p?.unitPrice ?? 0);
-      }, 0);
-      return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0, directRestocks, snapCount };
+      const prevStock = prevDate ? snapshots.filter((s: any) => s.weekStart === prevDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0) : 0;
+      const sales = Math.max(0, prevStock + totalRestock - stock);
+      const prevSales = prevDate ? Math.max(0, (restocks || []).filter((r: any) => r.distributorId === d.id && r.date <= prevDate).reduce((a: number, r: any) => a + r.quantity, 0) - prevStock) : 0;
+      const change = prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : (sales > 0 ? 100 : 0);
+      const value = Math.round(sales * 80); // approximate value
+      return { ...d, sales, stock, value, change, directRestocks: totalRestock, snapCount };
     }).sort((a: any, b: any) => b.sales - a.sales);
   }, [snapshots, restocks, activeDate, weeks, dists]);
 
