@@ -582,7 +582,7 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
       const ws = getWeeklySales(snapshots, activeDate, restocks, dists);
       const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
       const stock = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
-      // Get restocks directly for debugging
+      const snapCount = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).length;
       const directRestocks = (restocks || []).filter((r: any) => r.distributorId === d.id && r.date <= activeDate).reduce((a: number, r: any) => a + r.quantity, 0);
       const prevWs = prevDate ? getWeeklySales(snapshots, prevDate, restocks, dists) : [];
       const prevSales = prevWs.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
@@ -590,7 +590,7 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
         const p = products.find((x: any) => x.id === r.productId);
         return a + Math.max(0, r.sales) * (p?.unitPrice ?? 0);
       }, 0);
-      return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0, directRestocks };
+      return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0, directRestocks, snapCount };
     }).sort((a: any, b: any) => b.sales - a.sales);
   }, [snapshots, restocks, activeDate, weeks, dists]);
 
@@ -632,7 +632,7 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
                   <td className={`px-3 py-3 text-right text-xs font-bold ${d.change > 0 ? 'text-emerald-600' : d.change < 0 ? 'text-red-500' : 'text-gray-400'}`}>
                     {d.change > 0 ? '↑' : d.change < 0 ? '↓' : '—'} {d.change !== 0 ? Math.abs(d.change).toFixed(0) + '%' : ''}
                   </td>
-                  <td className="px-3 py-3 text-right text-gray-600 text-xs">{d.stock}</td>
+                  <td className="px-3 py-3 text-right text-gray-600 text-xs">{d.stock}<span className="text-[9px] text-gray-400">({d.snapCount}品)</span></td>
                   <td className="px-3 py-3 text-right text-gray-700 text-xs">¥{Math.round(d.value).toLocaleString()}</td>
                   <td className="pr-5 pl-3 py-3">
                     <div className="flex items-center gap-2">
