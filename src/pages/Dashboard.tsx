@@ -246,17 +246,17 @@ export default function Dashboard() {
               {regionList.map(r => {
                 const rDists = distributors.filter(d => d.region === r);
                 const rIds = new Set(rDists.map(d => d.id));
-                // Aggregate per product: restock - stock
+                // Aggregate per product across all dates: total restock - total stock = sales
                 const rProdSales: Record<string, number> = {};
                 products.forEach(p => {
-                  const pRestock = (restocks || []).filter(r => rIds.has(r.distributorId) && r.productId === p.id).reduce((a,r) => a + r.quantity, 0);
-                  const pStock = snapshots.filter(s => s.weekStart === activeDate && rIds.has(s.distributorId) && s.productId === p.id).reduce((a,s) => a + s.quantity, 0);
+                  const pRestock = (restocks || []).filter(r => rIds.has(r.distributorId) && r.productId === p.id && r.date <= activeDate).reduce((a,r) => a + r.quantity, 0);
+                  const pStock = snapshots.filter(s => rIds.has(s.distributorId) && s.productId === p.id && s.weekStart <= activeDate).reduce((a,s) => a + s.quantity, 0);
                   const pSales = Math.max(0, pRestock - pStock);
                   if (pSales > 0) rProdSales[p.id] = pSales;
                 });
                 const rRanked = Object.entries(rProdSales).sort((a,b) => b[1]-a[1]).slice(0, 5);
                 const rTotalSales = Object.values(rProdSales).reduce((s,x) => s + x, 0);
-                const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rIds.has(s.distributorId)).reduce((a, s) => a + s.quantity, 0);
+                const rTotalStock = snapshots.filter(s => rIds.has(s.distributorId) && s.weekStart <= activeDate).reduce((a, s) => a + s.quantity, 0);
                 return (
                   <div key={r} className="space-y-3">
                     <div className="flex items-center gap-2 px-1">
