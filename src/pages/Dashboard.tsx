@@ -59,17 +59,30 @@ export default function Dashboard() {
   const slowMoving = useMemo(() => hasSales ? getSlowMoving(snapshots, restocks, distributors) : [], [hasSales, snapshots, restocks]);
   const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
 
-  // ====== 汇总销量计算（进货-库存）======
+  // ====== 汇总销量：每个经销商（进货-库存）求和，再汇总 ======
   const firstRestockDate = useMemo(() => {
     const dates = (restocks || []).map(r => r.date).sort();
     return dates.length > 0 ? dates[0] : activeDate;
   }, [restocks, activeDate]);
-  const totalStock = hasData ? snapshots.filter(s => s.weekStart === activeDate).reduce((a, s) => a + s.quantity, 0) : 0;
-  const prevTotalStock = prevDate ? snapshots.filter(s => s.weekStart === prevDate).reduce((a, s) => a + s.quantity, 0) : 0;
-  const periodRestock = (restocks || []).filter(r => r.date > (prevDate || '2000-01-01') && r.date <= activeDate).reduce((s, r) => s + r.quantity, 0);
-  const totalSales = Math.max(0, prevTotalStock + periodRestock - totalStock);
-  const totalSalesValue = Math.round(totalSales * 80); // approximate
-  const prevTotalSales = prevDate ? Math.max(0, 0 + (restocks || []).filter(r => r.date <= prevDate && r.date > '2000-01-01').reduce((s,r)=>s+r.quantity,0) - prevTotalStock) : 0;
+
+  const distAggregate = useMemo(() => distributors.map(d => {
+    const dRestock = (restocks || []).filter(r => r.distributorId === d.id && r.date <= activeDate).reduce((s, r) => s + r.quantity, 0);
+    const dStock = snapshots.filter(s => s.distributorId === d.id && s.weekStart <= activeDate).reduce((a, s) => a + s.quantity, 0);
+    const dPrevStock = prevDate ? snapshots.filter(s => s.distributorId === d.id && s.weekStart === prevDate).reduce((a, s) => a + s.quantity, 0) : 0;
+    const dSales = Math.max(0, dPrevStock + dRestock - dStock);
+    return { name: d.name, restock: dRestock, stock: dStock, sales: dSales };
+  }), [distributors, restocks, snapshots, activeDate, prevDate]);
+
+  const totalSales = distAggregate.reduce((s, d) => s + d.sales, 0);
+  const totalStock = distAggregate.reduce((s, d) => s + d.stock, 0);
+  const periodRestock = distAggregate.reduce((s, d) => s + d.restock, 0);
+  const totalSalesValue = Math.round(totalSales * 80);
+
+  const prevTotalSales = prevDate ? distAggregate.reduce((s, d) => {
+    const dPrevR = (restocks || []).filter(r => r.distributorId === d.name && r.date <= prevDate).reduce((a, r) => a + r.quantity, 0);
+    const dPrevS = snapshots.filter(x => x.distributorId === d.name && x.weekStart === prevDate).reduce((a, x) => a + x.quantity, 0);
+    return s + Math.max(0, dPrevR - dPrevS);
+  }, 0) : 0;
   const salesChange = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : (totalSales > 0 ? 100 : 0);
 
   const activeProducts = useMemo(() => {
