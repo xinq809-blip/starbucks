@@ -593,35 +593,58 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
   }, [snapshots, restocks, activeDate, weeks, dists]);
 
   if (ranking.length === 0) return null;
-  const maxSales = Math.max(...ranking.map((r: any) => r.sales), 1);
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-      <h3 className="text-sm font-semibold text-gray-700 mb-4">经销商出货排名</h3>
-      <div className="space-y-3">
-        {ranking.map((d: any, i: number) => (
-          <div key={d.id} className="flex items-center gap-4">
-            <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0 ${
-              i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-100 text-gray-500' : i === 2 ? 'bg-orange-50 text-orange-600' : 'bg-gray-50 text-gray-400'
-            }`}>{i + 1}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-800">{d.name}</span>
-                  <span className={`text-[10px] font-bold ${d.change > 0 ? 'text-emerald-600' : d.change < 0 ? 'text-red-500' : 'text-gray-300'}`}>
-                    {d.change > 0 ? '↑' : d.change < 0 ? '↓' : '─'} {d.change !== 0 ? Math.abs(d.change).toFixed(0) + '%' : ''}
-                  </span>
-                </div>
-                <span className="text-xs text-gray-500">{d.sales} 件 · ¥{Math.round(d.value).toLocaleString()}</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className={`h-full rounded-full transition-all ${
-                  i === 0 ? 'bg-amber-400' : i === 1 ? 'bg-gray-400' : i === 2 ? 'bg-orange-400' : 'bg-starbucks-400'
-                }`} style={{ width: `${(d.sales / maxSales) * 100}%` }} />
-              </div>
-            </div>
-          </div>
-        ))}
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-gray-50">
+        <h3 className="text-sm font-bold text-gray-700">经销商出货排名</h3>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50/50 text-[11px] text-gray-400">
+              <th className="text-left pl-5 pr-2 py-2.5 font-medium w-10">#</th>
+              <th className="text-left px-2 py-2.5 font-medium">经销商</th>
+              <th className="text-right px-3 py-2.5 font-medium">区域</th>
+              <th className="text-right px-3 py-2.5 font-medium">出货</th>
+              <th className="text-right px-3 py-2.5 font-medium">环比</th>
+              <th className="text-right px-3 py-2.5 font-medium">库存</th>
+              <th className="text-right px-3 py-2.5 font-medium">出货额</th>
+              <th className="text-right pr-5 pl-3 py-2.5 font-medium">占比</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {ranking.map((d: any, i: number) => {
+              const share = ranking.reduce((s: number, x: any) => s + x.sales, 0);
+              const pct = share > 0 ? Math.round((d.sales / share) * 100) : 0;
+              return (
+                <tr key={d.id} className="hover:bg-gray-50/30 transition-colors">
+                  <td className="pl-5 pr-2 py-3">
+                    <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold ${
+                      i === 0 ? 'bg-amber-100 text-amber-700' : i === 1 ? 'bg-gray-200 text-gray-600' : i === 2 ? 'bg-orange-100 text-orange-700' : 'text-gray-400'
+                    }`}>{i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}</span>
+                  </td>
+                  <td className="px-2 py-3 font-medium text-gray-800 text-xs">{d.name}</td>
+                  <td className="px-3 py-3 text-right text-[10px] text-gray-500">{d.region || '—'}</td>
+                  <td className="px-3 py-3 text-right font-bold text-gray-800 text-xs">{d.sales}</td>
+                  <td className={`px-3 py-3 text-right text-xs font-bold ${d.change > 0 ? 'text-emerald-600' : d.change < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                    {d.change > 0 ? '↑' : d.change < 0 ? '↓' : '—'} {d.change !== 0 ? Math.abs(d.change).toFixed(0) + '%' : ''}
+                  </td>
+                  <td className="px-3 py-3 text-right text-gray-600 text-xs">{d.stock}</td>
+                  <td className="px-3 py-3 text-right text-gray-700 text-xs">¥{Math.round(d.value).toLocaleString()}</td>
+                  <td className="pr-5 pl-3 py-3">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden w-16">
+                        <div className="h-full bg-starbucks-500 rounded-full" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-[10px] text-gray-500 w-8">{pct}%</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
@@ -658,7 +681,6 @@ function FocusProducts({ snapshots, restocks, distributors, activeDate, weeks }:
 
         const totalSales = distData.reduce((a: number, d: any) => a + d.sales, 0);
         const totalStock = currWeekData.reduce((a: number, s: any) => a + s.quantity, 0);
-        const maxSales = Math.max(...distData.map((d: any) => d.sales), 1);
 
         return (
           <div key={prod.id} className="relative overflow-hidden bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
@@ -716,7 +738,7 @@ function FocusProducts({ snapshots, restocks, distributors, activeDate, weeks }:
                     <div className="flex-1 h-5 bg-gray-50 rounded-full overflow-hidden relative">
                       <div
                         className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r opacity-80 transition-all duration-500"
-                        style={{ width: `${(d.sales / maxSales) * 100}%`, backgroundImage: `linear-gradient(to right, ${prod.color}, ${prod.color}88)` }}
+                        style={{ width: `${(d.sales / Math.max(...distData.map((x: any) => x.sales), 1)) * 100}%`, backgroundImage: `linear-gradient(to right, ${prod.color}, ${prod.color}88)` }}
                       />
                       <span className="absolute inset-0 flex items-center justify-end pr-2 text-[10px] font-bold text-gray-600">
                         {d.sales > 0 ? d.sales : ''}
