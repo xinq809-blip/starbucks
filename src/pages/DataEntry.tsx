@@ -30,15 +30,17 @@ export default function DataEntry() {
     setStockData(sd); setSaved(false);
   }, [products, distributors, snapshots]);
 
-  // Load restocks for restockDate
+  // Load restocks for restockDate (preserve user inputs)
   const loadRestocks = useCallback((date: string) => {
-    const ri: Record<string, { val: string; added: number }> = {};
-    for (const p of products) for (const d of distributors) {
-      const key = `${p.id}_${d.id}`;
-      const existing = restocks.filter(r => r.date === date && r.productId === p.id && r.distributorId === d.id).reduce((s: number, r: any) => s + r.quantity, 0);
-      ri[key] = { val: '', added: existing };
-    }
-    setRestockInputs(ri);
+    setRestockInputs(prev => {
+      const next: Record<string, { val: string; added: number }> = {};
+      for (const p of products) for (const d of distributors) {
+        const key = `${p.id}_${d.id}`;
+        const existing = restocks.filter(r => r.date === date && r.productId === p.id && r.distributorId === d.id).reduce((s: number, r: any) => s + r.quantity, 0);
+        next[key] = { val: prev[key]?.val ?? '', added: existing };
+      }
+      return next;
+    });
   }, [products, distributors, restocks]);
 
   useEffect(() => { loadStock(selectedDate); }, [selectedDate, loadStock]);
