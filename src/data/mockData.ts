@@ -37,12 +37,17 @@ export const products: Product[] = [
   { id: 'p22', name: 'P350 befit 胶原蛋白肽 茉莉水', category: 'P350 befit', sku: 'P350-BF-ML', spec: '350ml×5入 津', unitPrice: 38.25 },
 ];
 
-export const distributors: Distributor[] = [
+// Active distributor list - can be updated from AppContext to include dynamically added ones
+export let distributors: Distributor[] = [
   { id: 'd1', name: '山海关梁波', region: '秦皇岛', phone: '', address: '', lat: 39.98, lng: 119.77 },
   { id: 'd2', name: '杨子', region: '秦皇岛', phone: '', address: '', lat: 39.93, lng: 119.58 },
   { id: 'd3', name: '速恩', region: '秦皇岛', phone: '', address: '', lat: 39.91, lng: 119.52 },
   { id: 'd4', name: '北戴河王总', region: '秦皇岛', phone: '', address: '', lat: 39.83, lng: 119.48 },
 ];
+
+export function setActiveDistributors(d: Distributor[]) {
+  if (d.length > 0) distributors = d;
+}
 
 /** Module-level store — kept empty, real data lives in AppContext.
  *  All helpers accept snapshots as first param so they can read from context. */

@@ -1,6 +1,6 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useState, type ReactNode } from 'react';
 import type { Product, Distributor, WeeklySnapshot, MonthlyTarget, RestockRecord } from '../types';
-import { products as initialProducts, distributors as initialDistributors } from '../data/mockData';
+import { products as initialProducts, distributors as initialDistributors, setActiveDistributors } from '../data/mockData';
 import { supabase } from '../lib/supabase';
 
 interface AppState {
@@ -79,6 +79,9 @@ const AppContext = createContext<{
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(reducer, initialState);
   const [loadErr, setLoadErr] = useState(false);
+
+  // Sync distributors to mockData module so all helpers see dynamic list
+  useEffect(() => { setActiveDistributors(state.distributors); }, [state.distributors]);
 
   // Load data from Supabase on mount (with timeout)
   useEffect(() => {
