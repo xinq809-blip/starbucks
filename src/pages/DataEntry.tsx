@@ -10,8 +10,16 @@ export default function DataEntry() {
   const availableWeeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
 
   // --- State ---
-  const [selectedDate, setSelectedDate] = useState(today); // 库存盘点日期
-  const [restockDate, setRestockDate] = useState(today);     // 进货日期（可不同于盘点日）
+  // Persist dates in localStorage so switching doesn't reset
+  const [selectedDate, setSelectedDate] = useState(() => {
+    try { return localStorage.getItem('sb_stock_date') || today; } catch { return today; }
+  });
+  const [restockDate, setRestockDate] = useState(() => {
+    try { return localStorage.getItem('sb_restock_date') || today; } catch { return today; }
+  });
+  // Save dates on change
+  useEffect(() => { localStorage.setItem('sb_stock_date', selectedDate); }, [selectedDate]);
+  useEffect(() => { localStorage.setItem('sb_restock_date', restockDate); }, [restockDate]);
   const [activeDist, setActiveDist] = useState(distributors[0]?.id || '');
   const [search, setSearch] = useState('');
   const [saved, setSaved] = useState(false);
