@@ -109,12 +109,13 @@ export function getWeeklySales(snaps: WeeklySnapshot[], weekStart: string, resto
       const prev = prevWeek ? getSnapshot(snaps, prevWeek, p.id, d.id) : 0;
       const curr = getSnapshot(snaps, weekStart, p.id, d.id);
       if (curr !== null) {
-        // 期间补货量
         const weekRestock = (restocks ?? [])
           .filter((r) => r.productId === p.id && r.distributorId === d.id && (!prevWeek || r.date > prevWeek) && r.date <= weekStart)
           .reduce((s, r) => s + r.quantity, 0);
-        // sales = prevStock + restock - currStock (first period: prevStock = 0)
-        rows.push({ productId: p.id, distributorId: d.id, prevQty: prev || 0, currQty: curr, sales: (prev || 0) + weekRestock - curr });
+        // 只有当期有进货才计算销售：销售 = 上期库存 + 进货 - 本期库存
+        const hasRestock = weekRestock > 0 || ((restocks ?? []).some((r) => r.productId === p.id && r.distributorId === d.id && r.date <= weekStart && (!prevWeek || r.date > prevWeek)));
+        const sales = hasRestock ? Math.max(0, (prev || 0) + weekRestock - curr) : 0;
+        rows.push({ productId: p.id, distributorId: d.id, prevQty: prev || 0, currQty: curr, sales });
       }
     }
   }
