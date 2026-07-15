@@ -4,7 +4,7 @@ import { getAvailableWeeks } from '../data/mockData';
 import { Save, Check, Search, Copy, Trash2 } from 'lucide-react';
 
 export default function DataEntry() {
-  const { state, saveWeek, addRestock, deleteRestock } = useApp();
+  const { state, saveWeek, addRestock, editRestock, deleteRestock } = useApp();
   const { products, distributors, snapshots, restocks } = state;
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
   const availableWeeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
@@ -242,7 +242,10 @@ export default function DataEntry() {
               return (
                 <div key={r.id} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5 text-xs group">
                   <span className="font-medium text-gray-700 max-w-[100px] truncate">{p?.name || r.productId}</span>
-                  <span className="font-bold text-amber-700">×{r.quantity}</span>
+                  <span className="font-bold text-amber-700 cursor-pointer hover:underline" onClick={() => {
+                  const n = parseInt(prompt('修改进货数量:', String(r.quantity)) || '');
+                  if (n && n > 0) editRestock(r.id, n);
+                }}>×{r.quantity}</span>
                   <button onClick={() => removeOneRestock(r.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><Trash2 size={11} /></button>
                 </div>
               );

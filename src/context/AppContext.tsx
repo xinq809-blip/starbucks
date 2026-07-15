@@ -72,6 +72,7 @@ const AppContext = createContext<{
   saveTarget: (t: MonthlyTarget) => Promise<void>;
   deleteTarget: (month: string) => Promise<void>;
   addRestock: (r: RestockRecord) => Promise<void>;
+  editRestock: (id: string, quantity: number) => Promise<void>;
   deleteRestock: (id: string) => Promise<void>;
 } | null>(null);
 
@@ -165,6 +166,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try { await supabase.from('restocks').insert({ id: r.id, date: r.date, product_id: r.productId, distributor_id: r.distributorId, quantity: r.quantity, week_start: r.weekStart }); } catch {}
   }, [state.restocks]);
 
+  const editRestock = useCallback(async (id: string, quantity: number) => {
+    if (quantity <= 0) { deleteRestock(id); return; }
+    dispatch({ type: 'SET_RESTOCKS', payload: state.restocks.map(r => r.id === id ? { ...r, quantity } : r) });
+    try { await supabase.from('restocks').update({ quantity }).eq('id', id); } catch {}
+  }, [state.restocks]);
+
   const deleteRestock = useCallback(async (id: string) => {
     dispatch({ type: 'SET_RESTOCKS', payload: state.restocks.filter(r => r.id !== id) });
     try { await supabase.from('restocks').delete().eq('id', id); } catch {}
@@ -178,7 +185,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     </div>
   ) : null;
 
-  return <AppContext.Provider value={{ state, dispatch, saveWeek, saveTarget, deleteTarget, addRestock, deleteRestock }}>
+  return <AppContext.Provider value={{ state, dispatch, saveWeek, saveTarget, deleteTarget, addRestock, editRestock, deleteRestock }}>
     {syncBanner}
     {children}
   </AppContext.Provider>;
