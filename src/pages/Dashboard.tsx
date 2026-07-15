@@ -27,7 +27,7 @@ export default function Dashboard() {
   const months = useMemo(() => getAvailableMonths(snapshots), [snapshots]);
   const currentMonth = months.length > 0 ? months[months.length - 1] : (weeks.length > 0 ? weeks[weeks.length - 1] : getCurrentWeekStart()).slice(0, 7);
   const hasData = weeks.length > 0;
-  const hasSales = weeks.length >= 2;
+  const hasSales = weeks.length >= 1;
 
   const [tab, setTab] = useState<Tab>('early');
 

@@ -101,20 +101,20 @@ export interface SalesRow {
 export function getWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[]): SalesRow[] {
   const weeks = getAvailableWeeks(snaps);
   const idx = weeks.indexOf(weekStart);
-  if (idx <= 0) return [];
-  const prevWeek = weeks[idx - 1];
+  if (idx < 0) return [];
+  const prevWeek = idx > 0 ? weeks[idx - 1] : null;
   const rows: SalesRow[] = [];
   for (const p of products) {
     for (const d of distributors) {
-      const prev = getSnapshot(snaps, prevWeek, p.id, d.id);
+      const prev = prevWeek ? getSnapshot(snaps, prevWeek, p.id, d.id) : 0;
       const curr = getSnapshot(snaps, weekStart, p.id, d.id);
-      if (prev !== null && curr !== null) {
-        // 期间补货量：日期在 prevWeek 之后、weekStart 之前（含当天）
+      if (curr !== null) {
+        // 期间补货量
         const weekRestock = (restocks ?? [])
-          .filter((r) => r.productId === p.id && r.distributorId === d.id && r.date > prevWeek && r.date <= weekStart)
+          .filter((r) => r.productId === p.id && r.distributorId === d.id && (!prevWeek || r.date > prevWeek) && r.date <= weekStart)
           .reduce((s, r) => s + r.quantity, 0);
-        // sales = prevStock + restock - currStock
-        rows.push({ productId: p.id, distributorId: d.id, prevQty: prev, currQty: curr, sales: prev + weekRestock - curr });
+        // sales = prevStock + restock - currStock (first period: prevStock = 0)
+        rows.push({ productId: p.id, distributorId: d.id, prevQty: prev || 0, currQty: curr, sales: (prev || 0) + weekRestock - curr });
       }
     }
   }
