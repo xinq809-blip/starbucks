@@ -266,20 +266,14 @@ export default function Dashboard() {
                           <div key={pid} className="flex items-center gap-2 text-xs py-0.5"><span className="text-gray-400 w-3">{i+1}</span><span className="flex-1 truncate text-gray-700">{p?.name||pid}</span><span className="font-bold text-gray-800">{s}</span></div>
                         );})}
                     </div>
-                    <div className="bg-white rounded-xl border border-gray-200 p-3">
-                      <h4 className="text-xs font-semibold text-gray-500 mb-2">经销商</h4>
-                      {rDists.map(d => {
-                        const ds = distributorSales.filter(s => s.distributorId === d.id);
-                        const sales = ds.reduce((s, x) => s + Math.max(0, x.sales), 0);
-                        const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
-                        return <div key={d.id} className="flex justify-between text-xs py-0.5"><span className="text-gray-700">{d.name}</span><span className="text-gray-500">销<b className="text-gray-800 ml-0.5">{sales}</b> 存<b className="text-gray-800 ml-0.5">{stock}</b></span></div>;
-                      })}
-                    </div>
                   </div>
                 );
               })}
             </div>
           )}
+
+          {/* 经销商出货排名 */}
+          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} products={products} />
 
           {/* Row 3: 品类分析 + 单客户分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
@@ -392,8 +386,6 @@ export default function Dashboard() {
           {/* Row 4: 椰椰拿铁 & P450 黑咖啡 重点产品分析 */}
           <FocusProducts snapshots={snapshots} restocks={restocks} distributors={distributors} activeDate={activeDate} weeks={weeks} />
 
-          {/* Row 5: 经销商排名 */}
-          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} products={products} />
         </>
       ) : (
         <>
