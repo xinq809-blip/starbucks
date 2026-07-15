@@ -113,13 +113,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   // Real-time subscription (only once)
   useEffect(() => {
     const channel = supabase.channel('realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'weekly_snapshots' }, async () => {
-        const r = await supabase.from('weekly_snapshots').select('*');
-        dispatch({ type: 'SET_SNAPSHOTS', payload: (r.data || []).map((x: any) => ({ weekStart: x.week_start, productId: x.product_id, distributorId: x.distributor_id, quantity: x.quantity })) });
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'weekly_snapshots' }, () => {})  // handled by optimistic update
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'weekly_snapshots' }, () => {})
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'restocks' }, (payload: any) => {
+        // Only handle changes from other devices (skip our own optimistic updates)
+        const newRow = payload.new;
+        if (newRow && !state.restocks.find(r => r.id === newRow.id)) {
+          const r = { id: newRow.id, date: newRow.date, productId: newRow.product_id, distributorId: newRow.distributor_id, quantity: newRow.quantity, weekStart: newRow.week_start };
+          dispatch({ type: 'SET_RESTOCKS', payload: [...state.restocks, r] });
+        }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'restocks' }, async () => {
-        const r = await supabase.from('restocks').select('*');
-        dispatch({ type: 'SET_RESTOCKS', payload: (r.data || []).map((x: any) => ({ id: x.id, date: x.date, productId: x.product_id, distributorId: x.distributor_id, quantity: x.quantity, weekStart: x.week_start })) });
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'restocks' }, (payload: any) => {
+        dispatch({ type: 'SET_RESTOCKS', payload: state.restocks.filter(r => r.id !== payload.old.id) });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'targets' }, async () => {
         const r = await supabase.from('targets').select('*');
