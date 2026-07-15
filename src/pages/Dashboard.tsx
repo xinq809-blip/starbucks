@@ -246,12 +246,17 @@ export default function Dashboard() {
               {regionList.map(r => {
                 const rDists = distributors.filter(d => d.region === r);
                 const rIds = new Set(rDists.map(d => d.id));
-                const rWS = weeklySales.filter(s => rIds.has(s.distributorId));
-                const rTotalSales = rWS.reduce((s, x) => s + Math.max(0, x.sales), 0);
+                // Aggregate per product: restock - stock
+                const rProdSales: Record<string, number> = {};
+                products.forEach(p => {
+                  const pRestock = (restocks || []).filter(r => rIds.has(r.distributorId) && r.productId === p.id).reduce((a,r) => a + r.quantity, 0);
+                  const pStock = snapshots.filter(s => s.weekStart === activeDate && rIds.has(s.distributorId) && s.productId === p.id).reduce((a,s) => a + s.quantity, 0);
+                  const pSales = Math.max(0, pRestock - pStock);
+                  if (pSales > 0) rProdSales[p.id] = pSales;
+                });
+                const rRanked = Object.entries(rProdSales).sort((a,b) => b[1]-a[1]).slice(0, 5);
+                const rTotalSales = Object.values(rProdSales).reduce((s,x) => s + x, 0);
                 const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rIds.has(s.distributorId)).reduce((a, s) => a + s.quantity, 0);
-                const rSalesByProd: Record<string, number> = {};
-                rWS.forEach(s => { rSalesByProd[s.productId] = (rSalesByProd[s.productId] || 0) + Math.max(0, s.sales); });
-                const rRanked = Object.entries(rSalesByProd).sort((a,b) => b[1]-a[1]).slice(0, 5);
                 return (
                   <div key={r} className="space-y-3">
                     <div className="flex items-center gap-2 px-1">
