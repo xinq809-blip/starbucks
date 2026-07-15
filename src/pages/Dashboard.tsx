@@ -379,32 +379,34 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Row 2: 经销商健康度 - 左右并排 */}
+          {/* Row 2: 经销商概览 - 左右并排 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {regionList.map(r => {
               const rDists = distHealth.filter(dh => distributors.find(d => d.id === dh.distributor.id)?.region === r);
               if (rDists.length === 0) return <div key={r} className="bg-white rounded-xl border border-gray-200 p-4 text-center text-sm text-gray-400 py-8">{r} · 暂无经销商数据</div>;
+              const rTotalSales = rDists.reduce((s, d) => s + d.curSales, 0);
+              const rTotalStock = rDists.reduce((s, d) => s + d.dStock, 0);
               return (
                 <div key={r} className="bg-white rounded-xl border border-gray-200 p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-gray-700">{r} · 健康度</h3>
-                    <div className="flex items-center gap-2 text-[10px]">
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400" />{rDists.filter(d => d.status === 'green').length}</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400" />{rDists.filter(d => d.status === 'yellow').length}</span>
-                      <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400" />{rDists.filter(d => d.status === 'red').length}</span>
-                    </div>
+                    <h3 className="text-sm font-semibold text-gray-700">{r}</h3>
+                    <div className="text-[10px] text-gray-400">{rDists.length} 家 · 销量 {rTotalSales} 件 · 库存 {rTotalStock} 件</div>
                   </div>
-                  <div className="space-y-1.5">
-                    {rDists.map((dh) => (
-                      <div key={dh.distributor.id} className={`flex items-center gap-2 p-2 rounded-lg border text-xs ${dh.status === 'red' ? 'border-red-200 bg-red-50/50' : dh.status === 'yellow' ? 'border-amber-200 bg-amber-50/50' : 'border-gray-100 bg-gray-50/30'}`}>
-                        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dh.status==='red'?'bg-red-400':dh.status==='yellow'?'bg-amber-400':'bg-emerald-400'}`} />
-                        <span className="font-semibold text-gray-800 w-20 truncate">{dh.distributor.name}</span>
-                        <span className="text-gray-500">出货 <b className="text-gray-800">{dh.curSales}</b></span>
-                        <span className={`font-bold ${dh.changePct>=0?'text-emerald-600':'text-red-500'}`}>{dh.changePct>=0?'+':''}{dh.changePct.toFixed(0)}%</span>
-                        <span className="text-gray-500">库存 <b>{dh.dStock}</b></span>
-                        {dh.problem && <span className={`ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-medium ${dh.status==='red'?'bg-red-100 text-red-600':'bg-amber-100 text-amber-600'}`}>{dh.problem}</span>}
-                      </div>
-                    ))}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead><tr className="text-gray-400 border-b border-gray-100"><th className="text-left py-1.5 font-medium">经销商</th><th className="text-right py-1.5 font-medium">出货</th><th className="text-right py-1.5 font-medium">环比</th><th className="text-right py-1.5 font-medium">库存</th><th className="text-right py-1.5 font-medium">存销比</th></tr></thead>
+                      <tbody>
+                        {rDists.map(dh => (
+                          <tr key={dh.distributor.id} className="border-b border-gray-50">
+                            <td className="py-1.5 text-gray-800 font-medium">{dh.distributor.name}</td>
+                            <td className="py-1.5 text-right text-gray-700">{dh.curSales}</td>
+                            <td className={`py-1.5 text-right font-bold ${dh.changePct>=0?'text-emerald-600':'text-red-500'}`}>{dh.changePct>=0?'+':''}{dh.changePct.toFixed(0)}%</td>
+                            <td className="py-1.5 text-right text-gray-700">{dh.dStock}</td>
+                            <td className={`py-1.5 text-right font-bold ${dh.stockRatio > 4 ? 'text-amber-600' : 'text-gray-500'}`}>{dh.stockRatio >= 99 ? '—' : dh.stockRatio.toFixed(1)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               );
