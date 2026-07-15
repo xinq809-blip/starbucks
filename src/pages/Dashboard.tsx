@@ -60,7 +60,7 @@ export default function Dashboard() {
   const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
 
   // ====== 周报数据 ======
-  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales, restocks, snapshots]);
+  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales, restocks, snapshots]);
   const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
   const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
 
@@ -72,7 +72,7 @@ export default function Dashboard() {
   }, 0);
 
   const prevDatelySales = useMemo(() => {
-    return prevDate ? getWeeklySales(snapshots, prevDate, restocks) : [];
+    return prevDate ? getWeeklySales(snapshots, prevDate, restocks, distributors) : [];
   }, [prevDate, restocks]);
   const prevTotalSales = prevDatelySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
   const salesChange = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : 0;
@@ -170,13 +170,13 @@ export default function Dashboard() {
 
   const distDrillDown = useMemo(() => {
     if (!hasSales) return { products: [], trend: [] };
-    const ws = getWeeklySales(snapshots, activeDate, restocks);
+    const ws = getWeeklySales(snapshots, activeDate, restocks, distributors);
     const detail = products.map((p) => {
       const row = ws.find((r) => r.productId === p.id && r.distributorId === selectedDist);
       return { name: p.name, shortName: p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name, sales: row ? Math.max(0, row.sales) : 0, prevQty: row?.prevQty ?? 0, currQty: row?.currQty ?? 0 };
     }).sort((a, b) => b.sales - a.sales);
     const trend = weeks.slice(1).map((w) => {
-      const ws = getWeeklySales(snapshots, w, restocks);
+      const ws = getWeeklySales(snapshots, w, restocks, distributors);
       return { week: getWeekLabel(w), sales: ws.filter((r) => r.distributorId === selectedDist).reduce((sum, r) => sum + Math.max(0, r.sales), 0) };
     });
     return { products: detail, trend };
@@ -190,7 +190,7 @@ export default function Dashboard() {
     const distMap: Record<string, number> = {};
     const catMap: Record<string, number> = {};
     for (const w of mWeeks) {
-      const ws = getWeeklySales(snapshots, w, restocks);
+      const ws = getWeeklySales(snapshots, w, restocks, distributors);
       for (const r of ws) {
         const s = Math.max(0, r.sales);
         mSales += s;
@@ -247,7 +247,7 @@ export default function Dashboard() {
 
   // ====== CSV Export ======
   const exportCSV = () => {
-    const ws = getWeeklySales(snapshots, activeDate, restocks);
+    const ws = getWeeklySales(snapshots, activeDate, restocks, distributors);
     const rows = [['产品', 'SKU', '经销商', '上周库存', '本周库存', '销量', '单价', '销售额']];
     for (const r of ws) {
       const p = getProductById(r.productId);
@@ -535,7 +535,7 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-gray-700 mb-2">动销率趋势</h3>
               {(() => {
                 const mData = weeks.slice(1).map(w => {
-                  const ws = getWeeklySales(snapshots, w, restocks);
+                  const ws = getWeeklySales(snapshots, w, restocks, distributors);
                   const active = ws.filter(r => r.sales > 0).length;
                   const total = ws.length || 1;
                   return { w: w.slice(5), rate: Math.round((active / total) * 100) };
@@ -813,10 +813,10 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products }: any) 
     if (weeks.length < 2) return [];
     const prevDate = weeks[weeks.length - 2];
     return dists.map((d: any) => {
-      const ws = getWeeklySales(snapshots, activeDate, restocks);
+      const ws = getWeeklySales(snapshots, activeDate, restocks, dists);
       const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
       const stock = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
-      const prevWs = getWeeklySales(snapshots, prevDate, restocks);
+      const prevWs = getWeeklySales(snapshots, prevDate, restocks, dists);
       const prevSales = prevWs.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
       const value = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => {
         const p = products.find((x: any) => x.id === r.productId);

@@ -98,14 +98,15 @@ export interface SalesRow {
   sales: number; // positive = sold out, negative = restocked
 }
 
-export function getWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[]): SalesRow[] {
+export function getWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[], dists?: Distributor[]): SalesRow[] {
+  const dList = (dists && dists.length > 0) ? dists : distributors;
   const weeks = getAvailableWeeks(snaps);
   const idx = weeks.indexOf(weekStart);
   if (idx < 0) return [];
   const prevWeek = idx > 0 ? weeks[idx - 1] : null;
   const rows: SalesRow[] = [];
   for (const p of products) {
-    for (const d of distributors) {
+    for (const d of dList) {
       const prev = prevWeek ? getSnapshot(snaps, prevWeek, p.id, d.id) : 0;
       const curr = getSnapshot(snaps, weekStart, p.id, d.id);
       if (curr !== null) {
