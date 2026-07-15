@@ -273,7 +273,7 @@ export default function Dashboard() {
           )}
 
           {/* 经销商出货排名 */}
-          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} products={products} />
+          <DistRanking snapshots={snapshots} restocks={restocks} activeDate={activeDate} weeks={weeks} products={products} distributors={distributors} />
 
           {/* Row 3: 品类分析 + 单客户分析 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
@@ -569,18 +569,15 @@ function SafeStockEdit() {
 }
 
 /* ==================== 经销商排名 ==================== */
-function DistRanking({ snapshots, restocks, activeDate, weeks, products }: any) {
-  const dists = useMemo(() => {
-    try { const r = localStorage.getItem('sb_distributors_v2'); if (r) return JSON.parse(r); } catch {}
-    return [
-      { id: 'd1', name: '山海关梁波' }, { id: 'd2', name: '杨子' },
-      { id: 'd3', name: '速恩' }, { id: 'd4', name: '北戴河王总' },
-    ];
-  }, []);
+function DistRanking({ snapshots, restocks, activeDate, weeks, products, distributors }: any) {
+  const dists = distributors && distributors.length > 0 ? distributors : [
+    { id: 'd1', name: '山海关梁波' }, { id: 'd2', name: '杨子' },
+    { id: 'd3', name: '速恩' }, { id: 'd4', name: '北戴河王总' },
+  ];
 
   const ranking = useMemo(() => {
-    if (weeks.length < 2) return [];
-    const prevDate = weeks[weeks.length - 2];
+    if (weeks.length < 1) return [];
+    const prevDate = weeks.length > 1 ? weeks[weeks.length - 2] : null;
     return dists.map((d: any) => {
       const ws = getWeeklySales(snapshots, activeDate, restocks, dists);
       const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
