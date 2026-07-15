@@ -128,8 +128,8 @@ export function getWeeklySales(snaps: WeeklySnapshot[], weekStart: string, resto
 }
 
 /** Aggregate sales grouped by product for a given week */
-export function getProductWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[]): { productId: string; sales: number }[] {
-  const rows = getWeeklySales(snaps, weekStart, restocks);
+export function getProductWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[], dists?: Distributor[]): { productId: string; sales: number }[] {
+  const rows = getWeeklySales(snaps, weekStart, restocks, dists);
   const map: Record<string, number> = {};
   for (const r of rows) {
     map[r.productId] = (map[r.productId] || 0) + r.sales;
@@ -138,8 +138,8 @@ export function getProductWeeklySales(snaps: WeeklySnapshot[], weekStart: string
 }
 
 /** Aggregate sales grouped by distributor for a given week */
-export function getDistributorWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[]): { distributorId: string; sales: number }[] {
-  const rows = getWeeklySales(snaps, weekStart, restocks);
+export function getDistributorWeeklySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[], dists?: Distributor[]): { distributorId: string; sales: number }[] {
+  const rows = getWeeklySales(snaps, weekStart, restocks, dists);
   const map: Record<string, number> = {};
   for (const r of rows) {
     map[r.distributorId] = (map[r.distributorId] || 0) + r.sales;
@@ -175,14 +175,14 @@ export function getInventoryValue(snaps: WeeklySnapshot[], weekStart: string): n
 }
 
 /** Calculate inventory turnover days: current stock / avg daily sales */
-export function getTurnoverDays(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[]): number | null {
+export function getTurnoverDays(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[], dists?: Distributor[]): number | null {
   const weeks = getAvailableWeeks(snaps);
   if (weeks.length < 2) return null;
   const recentWeeks = weeks.slice(Math.max(0, weeks.length - 4));
   let totalSales = 0;
   let count = 0;
   for (let i = 1; i < recentWeeks.length; i++) {
-    const ws = getWeeklySales(snaps, recentWeeks[i], restocks);
+    const ws = getWeeklySales(snaps, recentWeeks[i], restocks, dists);
     totalSales += ws.reduce((s, r) => s + Math.max(0, r.sales), 0);
     count++;
   }
@@ -193,13 +193,13 @@ export function getTurnoverDays(snaps: WeeklySnapshot[], weekStart: string, rest
 }
 
 /** Detect slow-moving products: 0 sales for 2+ consecutive weeks */
-export function getSlowMoving(snaps: WeeklySnapshot[], restocks?: RestockRecord[]): { productId: string; distributorId: string; weeksStale: number }[] {
+export function getSlowMoving(snaps: WeeklySnapshot[], restocks?: RestockRecord[], dists?: Distributor[]): { productId: string; distributorId: string; weeksStale: number }[] {
   const weeks = getAvailableWeeks(snaps);
   if (weeks.length < 3) return [];
   const latest = weeks[weeks.length - 1];
   const prev = weeks[weeks.length - 2];
-  const sales = getWeeklySales(snaps, latest, restocks);
-  const prevSales = getWeeklySales(snaps, prev, restocks);
+  const sales = getWeeklySales(snaps, latest, restocks, dists);
+  const prevSales = getWeeklySales(snaps, prev, restocks, dists);
 
   return sales
     .filter((s) => s.sales === 0)
@@ -210,7 +210,7 @@ export function getSlowMoving(snaps: WeeklySnapshot[], restocks?: RestockRecord[
     .map((s) => {
       let stale = 2;
       for (let i = weeks.length - 3; i >= 0; i--) {
-        const ws = getWeeklySales(snaps, weeks[i], restocks);
+        const ws = getWeeklySales(snaps, weeks[i], restocks, dists);
         const row = ws.find((r) => r.productId === s.productId && r.distributorId === s.distributorId);
         if (row && row.sales === 0) stale++; else break;
       }
@@ -219,8 +219,8 @@ export function getSlowMoving(snaps: WeeklySnapshot[], restocks?: RestockRecord[
 }
 
 /** Aggregate sales by product category for a given week */
-export function getCategorySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[]): { category: string; sales: number; value: number }[] {
-  const ws = getWeeklySales(snaps, weekStart, restocks);
+export function getCategorySales(snaps: WeeklySnapshot[], weekStart: string, restocks?: RestockRecord[], dists?: Distributor[]): { category: string; sales: number; value: number }[] {
+  const ws = getWeeklySales(snaps, weekStart, restocks, dists);
   const map: Record<string, { sales: number; value: number }> = {};
   for (const r of ws) {
     if (r.sales <= 0) continue;

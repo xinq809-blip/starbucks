@@ -55,14 +55,14 @@ export default function Dashboard() {
 
   // ====== 通用数据 ======
   const invValue = hasData ? getInventoryValue(snapshots, activeDate) : 0;
-  const turnoverDays = hasData ? getTurnoverDays(snapshots, activeDate, restocks) : null;
-  const slowMoving = useMemo(() => hasSales ? getSlowMoving(snapshots, restocks) : [], [hasSales, snapshots, restocks]);
-  const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
+  const turnoverDays = hasData ? getTurnoverDays(snapshots, activeDate, restocks, distributors) : null;
+  const slowMoving = useMemo(() => hasSales ? getSlowMoving(snapshots, restocks, distributors) : [], [hasSales, snapshots, restocks]);
+  const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
 
   // ====== 周报数据 ======
   const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales, restocks, snapshots]);
-  const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
-  const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
+  const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
+  const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
 
   const totalStock = hasData ? getTotalStock(snapshots, activeDate) : 0;
   const totalSales = weeklySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
