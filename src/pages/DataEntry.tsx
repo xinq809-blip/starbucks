@@ -184,8 +184,8 @@ export default function DataEntry() {
             const currNum = curr === '' ? 0 : (curr as number);
             const restockAdded = getRestockAdded(p.id);
             const restockVal = getRestockVal(p.id);
-            // Sales estimate: prev + restock - curr
-            const sales = Math.max(0, prev + restockAdded - currNum);
+            // 预估销量 = 上期库存 + 期间进货 - 本次库存。没有进货则不显示
+            const sales = restockAdded > 0 ? Math.max(0, prev + restockAdded - currNum) : 0;
             const changed = prev !== currNum;
 
             // Existing restocks for this product+dist+date
