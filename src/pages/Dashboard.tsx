@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import {
   getAvailableWeeks, getWeekLabel, getCurrentWeekStart, getProductById, getDistributorById,
-  getWeeklySales, getProductWeeklySales, getDistributorWeeklySales,
+  getWeeklySales,
   getTotalStock, getAvailableMonths, getInventoryValue, getTurnoverDays,
   getSlowMoving, getCategorySales, getCategoryLabel,
 } from '../data/mockData';
@@ -59,25 +59,26 @@ export default function Dashboard() {
   const slowMoving = useMemo(() => hasSales ? getSlowMoving(snapshots, restocks, distributors) : [], [hasSales, snapshots, restocks]);
   const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
 
-  // ====== 周报数据 ======
-  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales, restocks, snapshots]);
-  const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
-  const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
+  // ====== 汇总销量计算（进货-库存）======
+  const totalStock = hasData ? snapshots.filter(s => s.weekStart === activeDate).reduce((a, s) => a + s.quantity, 0) : 0;
+  const prevTotalStock = prevDate ? snapshots.filter(s => s.weekStart === prevDate).reduce((a, s) => a + s.quantity, 0) : 0;
+  const periodRestock = (restocks || []).filter(r => r.date > (prevDate || '2000-01-01') && r.date <= activeDate).reduce((s, r) => s + r.quantity, 0);
+  const totalSales = Math.max(0, prevTotalStock + periodRestock - totalStock);
+  const totalSalesValue = Math.round(totalSales * 80); // approximate
+  const prevTotalSales = prevDate ? Math.max(0, 0 + (restocks || []).filter(r => r.date <= prevDate && r.date > '2000-01-01').reduce((s,r)=>s+r.quantity,0) - prevTotalStock) : 0;
+  const salesChange = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : (totalSales > 0 ? 100 : 0);
 
-  const totalStock = hasData ? getTotalStock(snapshots, activeDate) : 0;
-  const totalSales = weeklySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
-  const totalSalesValue = weeklySales.reduce((s, r) => {
-    const p = getProductById(r.productId);
-    return s + (p ? Math.max(0, r.sales) * p.unitPrice : 0);
-  }, 0);
+  const activeProducts = useMemo(() => {
+    const set = new Set<string>();
+    (restocks || []).filter(r => r.date <= activeDate).forEach(r => set.add(r.productId));
+    return set.size;
+  }, [restocks, activeDate]);
+  const activeDistributors = useMemo(() => {
+    const set = new Set<string>();
+    (restocks || []).filter(r => r.date <= activeDate).forEach(r => set.add(r.distributorId));
+    return set.size;
+  }, [restocks, activeDate]);
 
-  const prevDatelySales = useMemo(() => {
-    return prevDate ? getWeeklySales(snapshots, prevDate, restocks, distributors) : [];
-  }, [prevDate, restocks]);
-  const prevTotalSales = prevDatelySales.reduce((s, r) => s + Math.max(0, r.sales), 0);
-  const salesChange = prevTotalSales > 0 ? ((totalSales - prevTotalSales) / prevTotalSales) * 100 : 0;
-  const activeProducts = productSales.filter((p) => p.sales > 0).length;
-  const activeDistributors = distributorSales.filter((d) => d.sales > 0).length;
 
   // Last week ranking for comparison
 
