@@ -324,6 +324,47 @@ export default function Dashboard() {
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
+          {/* Two-region split: 秦皇岛 | 唐山 */}
+          {regionList.length > 1 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {regionList.map(r => {
+                const rDists = distributors.filter(d => d.region === r);
+                const rIds = new Set(rDists.map(d => d.id));
+                const rWS = weeklySales.filter(s => rIds.has(s.distributorId));
+                const rTotalSales = rWS.reduce((s, x) => s + Math.max(0, x.sales), 0);
+                const rTotalStock = snapshots.filter(s => s.weekStart === activeDate && rIds.has(s.distributorId)).reduce((a, s) => a + s.quantity, 0);
+                const rSalesByProd: Record<string, number> = {};
+                rWS.forEach(s => { rSalesByProd[s.productId] = (rSalesByProd[s.productId] || 0) + Math.max(0, s.sales); });
+                const rRanked = Object.entries(rSalesByProd).sort((a,b) => b[1]-a[1]).slice(0, 5);
+                return (
+                  <div key={r} className="space-y-3">
+                    <div className="flex items-center gap-2 px-1">
+                      <span className={`w-3 h-3 rounded-full ${r==='秦皇岛'?'bg-blue-500':'bg-amber-500'}`} />
+                      <h3 className="text-sm font-bold text-gray-800">{r}</h3>
+                      <span className="text-[10px] text-gray-400">{rDists.length}家 · 销量{rTotalSales}件 · 库存{rTotalStock}件</span>
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-3">
+                      <h4 className="text-xs font-semibold text-gray-500 mb-2">产品排行 Top 5</h4>
+                      {rRanked.length === 0 ? <div className="text-xs text-gray-300 py-2">暂无数据</div> :
+                        rRanked.map(([pid, s], i) => { const p = getProductById(pid); return (
+                          <div key={pid} className="flex items-center gap-2 text-xs py-0.5"><span className="text-gray-400 w-3">{i+1}</span><span className="flex-1 truncate text-gray-700">{p?.name||pid}</span><span className="font-bold text-gray-800">{s}</span></div>
+                        );})}
+                    </div>
+                    <div className="bg-white rounded-xl border border-gray-200 p-3">
+                      <h4 className="text-xs font-semibold text-gray-500 mb-2">经销商</h4>
+                      {rDists.map(d => {
+                        const ds = distributorSales.filter(s => s.distributorId === d.id);
+                        const sales = ds.reduce((s, x) => s + Math.max(0, x.sales), 0);
+                        const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
+                        return <div key={d.id} className="flex justify-between text-xs py-0.5"><span className="text-gray-700">{d.name}</span><span className="text-gray-500">销<b className="text-gray-800 ml-0.5">{sales}</b> 存<b className="text-gray-800 ml-0.5">{stock}</b></span></div>;
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Row 1: 产品排行 + ABC & 库存价值 */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 p-4">
