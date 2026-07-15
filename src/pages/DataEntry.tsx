@@ -10,36 +10,39 @@ export default function DataEntry() {
   const availableWeeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
 
   // --- State ---
-  const [selectedDate, setSelectedDate] = useState(today);
+  const [selectedDate, setSelectedDate] = useState(today); // 库存盘点日期
+  const [restockDate, setRestockDate] = useState(today);     // 进货日期（可不同于盘点日）
   const [activeDist, setActiveDist] = useState(distributors[0]?.id || '');
   const [search, setSearch] = useState('');
   const [saved, setSaved] = useState(false);
 
-  // Form data: stock counts
   const [stockData, setStockData] = useState<Record<string, number>>({});
-  // Restocks being entered this session: key = productId_distId, value = quantity
   const [restockInputs, setRestockInputs] = useState<Record<string, { val: string; added: number }>>({});
 
-  // Load existing data for selected date
-  const loadDate = useCallback((date: string) => {
+  // Load stock data for selected date
+  const loadStock = useCallback((date: string) => {
     const sd: Record<string, number> = {};
-    const ri: Record<string, { val: string; added: number }> = {};
-    for (const p of products) {
-      for (const d of distributors) {
-        const key = `${p.id}_${d.id}`;
-        const sn = snapshots.find(s => s.weekStart === date && s.productId === p.id && s.distributorId === d.id);
-        sd[key] = sn ? sn.quantity : -1;
-        // Sum existing restocks for this date+product+dist
-        const existing = restocks.filter(r => r.date === date && r.productId === p.id && r.distributorId === d.id).reduce((s: number, r: any) => s + r.quantity, 0);
-        ri[key] = { val: '', added: existing };
-      }
+    for (const p of products) for (const d of distributors) {
+      const key = `${p.id}_${d.id}`;
+      const sn = snapshots.find(s => s.weekStart === date && s.productId === p.id && s.distributorId === d.id);
+      sd[key] = sn ? sn.quantity : -1;
     }
-    setStockData(sd);
-    setRestockInputs(ri);
-    setSaved(false);
-  }, [products, distributors, snapshots, restocks]);
+    setStockData(sd); setSaved(false);
+  }, [products, distributors, snapshots]);
 
-  useEffect(() => { loadDate(selectedDate); }, [selectedDate, loadDate]);
+  // Load restocks for restockDate
+  const loadRestocks = useCallback((date: string) => {
+    const ri: Record<string, { val: string; added: number }> = {};
+    for (const p of products) for (const d of distributors) {
+      const key = `${p.id}_${d.id}`;
+      const existing = restocks.filter(r => r.date === date && r.productId === p.id && r.distributorId === d.id).reduce((s: number, r: any) => s + r.quantity, 0);
+      ri[key] = { val: '', added: existing };
+    }
+    setRestockInputs(ri);
+  }, [products, distributors, restocks]);
+
+  useEffect(() => { loadStock(selectedDate); }, [selectedDate, loadStock]);
+  useEffect(() => { loadRestocks(restockDate); }, [restockDate, loadRestocks]);
 
   // Previous date for comparison
   const prevDate = availableWeeks.filter(w => w < selectedDate).sort().reverse()[0] || null;
@@ -77,7 +80,7 @@ export default function DataEntry() {
     const key = `${pid}_${activeDist}`;
     const n = parseInt(restockInputs[key]?.val || '');
     if (!n || n <= 0) return;
-    addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: selectedDate, productId: pid, distributorId: activeDist, quantity: n, weekStart: selectedDate });
+    addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid, distributorId: activeDist, quantity: n, weekStart: selectedDate });
     setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + n } }));
   };
 
@@ -130,8 +133,12 @@ export default function DataEntry() {
 
       {/* Date + toolbar */}
       <div className="flex flex-wrap items-center gap-2 bg-white rounded-xl border border-gray-100 shadow-sm px-3 py-2">
+        <span className="text-[10px] text-gray-400">盘点日</span>
         <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)} className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-medium" />
         <div className="flex gap-0.5">{availableWeeks.filter(w => w >= '2026-05').slice(0, 5).map(w => <button key={w} onClick={() => setSelectedDate(w)} className={`px-1.5 py-1 rounded text-[10px] font-medium ${w===selectedDate?'bg-gray-900 text-white':'bg-gray-50 text-gray-600'}`}>{w.slice(5)}</button>)}</div>
+        <span className="text-gray-300 mx-1">|</span>
+        <span className="text-[10px] text-gray-400">进货日</span>
+        <input type="date" value={restockDate} onChange={e => setRestockDate(e.target.value)} className="border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-medium bg-amber-50/30" />
         <div className="flex-1" />
         <button onClick={handleCopyPrev} disabled={!prevDate} className="text-[10px] px-2 py-1 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-30"><Copy size={11} className="inline mr-0.5" />复制上次库存</button>
       </div>
@@ -214,13 +221,13 @@ export default function DataEntry() {
       </div>
 
       {/* Existing restocks summary */}
-      {restocks.filter(r => r.date === selectedDate && r.distributorId === activeDist).length > 0 && (
+      {restocks.filter(r => r.date === restockDate && r.distributorId === activeDist).length > 0 && (
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-4 py-2 bg-amber-50/50 border-b border-gray-50 text-xs font-semibold text-gray-700">
             今日进货明细 · {selectedDate} · {activeDistName}
           </div>
           <div className="flex flex-wrap gap-1.5 p-3">
-            {restocks.filter(r => r.date === selectedDate && r.distributorId === activeDist).map((r: any) => {
+            {restocks.filter(r => r.date === restockDate && r.distributorId === activeDist).map((r: any) => {
               const p = products.find((x: any) => x.id === r.productId);
               return (
                 <div key={r.id} className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-1.5 text-xs group">
