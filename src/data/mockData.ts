@@ -109,9 +109,9 @@ export function getWeeklySales(snaps: WeeklySnapshot[], weekStart: string, resto
       const prev = getSnapshot(snaps, prevWeek, p.id, d.id);
       const curr = getSnapshot(snaps, weekStart, p.id, d.id);
       if (prev !== null && curr !== null) {
-        // 当周补货量
+        // 期间补货量：日期在 prevWeek 之后、weekStart 之前（含当天）
         const weekRestock = (restocks ?? [])
-          .filter((r) => r.weekStart === weekStart && r.productId === p.id && r.distributorId === d.id)
+          .filter((r) => r.productId === p.id && r.distributorId === d.id && r.date > prevWeek && r.date <= weekStart)
           .reduce((s, r) => s + r.quantity, 0);
         // sales = prevStock + restock - currStock
         rows.push({ productId: p.id, distributorId: d.id, prevQty: prev, currQty: curr, sales: prev + weekRestock - curr });
