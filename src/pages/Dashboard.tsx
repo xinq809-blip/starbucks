@@ -60,7 +60,7 @@ export default function Dashboard() {
   const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
 
   // ====== 周报数据 ======
-  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
+  const weeklySales = useMemo(() => hasSales ? getWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales, restocks, snapshots]);
   const productSales = useMemo(() => hasSales ? getProductWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
   const distributorSales = useMemo(() => hasSales ? getDistributorWeeklySales(snapshots, activeDate, restocks) : [], [activeDate, hasSales]);
 
