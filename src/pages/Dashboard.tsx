@@ -582,13 +582,15 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
       const ws = getWeeklySales(snapshots, activeDate, restocks, dists);
       const sales = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
       const stock = snapshots.filter((s: any) => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
-      const prevWs = getWeeklySales(snapshots, prevDate, restocks, dists);
+      // Get restocks directly for debugging
+      const directRestocks = (restocks || []).filter((r: any) => r.distributorId === d.id && r.date <= activeDate).reduce((a: number, r: any) => a + r.quantity, 0);
+      const prevWs = prevDate ? getWeeklySales(snapshots, prevDate, restocks, dists) : [];
       const prevSales = prevWs.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => a + Math.max(0, r.sales), 0);
       const value = ws.filter((r: any) => r.distributorId === d.id).reduce((a: number, r: any) => {
         const p = products.find((x: any) => x.id === r.productId);
         return a + Math.max(0, r.sales) * (p?.unitPrice ?? 0);
       }, 0);
-      return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0 };
+      return { ...d, sales, stock, value, prevSales, change: prevSales > 0 ? ((sales - prevSales) / prevSales) * 100 : 0, directRestocks };
     }).sort((a: any, b: any) => b.sales - a.sales);
   }, [snapshots, restocks, activeDate, weeks, dists]);
 
@@ -626,7 +628,7 @@ function DistRanking({ snapshots, restocks, activeDate, weeks, products, distrib
                   </td>
                   <td className="px-2 py-3 font-medium text-gray-800 text-xs">{d.name}</td>
                   <td className="px-3 py-3 text-right text-[10px] text-gray-500">{d.region || '—'}</td>
-                  <td className="px-3 py-3 text-right font-bold text-gray-800 text-xs">{d.sales}</td>
+                  <td className="px-3 py-3 text-right font-bold text-gray-800 text-xs">{d.sales}<span className="text-[9px] text-gray-400 ml-1">(进{d.directRestocks})</span></td>
                   <td className={`px-3 py-3 text-right text-xs font-bold ${d.change > 0 ? 'text-emerald-600' : d.change < 0 ? 'text-red-500' : 'text-gray-400'}`}>
                     {d.change > 0 ? '↑' : d.change < 0 ? '↓' : '—'} {d.change !== 0 ? Math.abs(d.change).toFixed(0) + '%' : ''}
                   </td>
