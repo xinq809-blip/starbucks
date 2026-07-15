@@ -60,6 +60,10 @@ export default function Dashboard() {
   const categorySales = useMemo(() => hasSales ? getCategorySales(snapshots, activeDate, restocks, distributors) : [], [activeDate, hasSales]);
 
   // ====== 汇总销量计算（进货-库存）======
+  const firstRestockDate = useMemo(() => {
+    const dates = (restocks || []).map(r => r.date).sort();
+    return dates.length > 0 ? dates[0] : activeDate;
+  }, [restocks, activeDate]);
   const totalStock = hasData ? snapshots.filter(s => s.weekStart === activeDate).reduce((a, s) => a + s.quantity, 0) : 0;
   const prevTotalStock = prevDate ? snapshots.filter(s => s.weekStart === prevDate).reduce((a, s) => a + s.quantity, 0) : 0;
   const periodRestock = (restocks || []).filter(r => r.date > (prevDate || '2000-01-01') && r.date <= activeDate).reduce((s, r) => s + r.quantity, 0);
@@ -212,7 +216,9 @@ export default function Dashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">数据看板</h1>
-          <p className="text-[11px] md:text-xs text-gray-400">最新盘点: {getWeekLabel(activeDate)} · 共 {weeks.length} 次录入 · {months.length} 个月 · 最近录入 {weeks.length > 0 ? weeks[weeks.length-1] : '—'}</p>
+          <p className="text-[11px] md:text-xs text-gray-400">
+            区间: {firstRestockDate} → {activeDate} · {periodRestock}件进货 · {totalStock}件库存 · 共{weeks.length}次盘点
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={exportCSV} className="flex items-center gap-1 px-2 py-1.5 text-[11px] md:text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap"><Download size={13} /><span className="hidden sm:inline">导出</span></button>
