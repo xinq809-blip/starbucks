@@ -11,6 +11,7 @@ import Billiard from './pages/Billiard';
 import Distributors from './pages/Distributors';
 import DistributorDetail from './pages/DistributorDetail';
 import Expense from './pages/Expense';
+import Fridge from './pages/Fridge';
 
 export default function App() {
   return (
@@ -26,6 +27,7 @@ export default function App() {
             <Route path="/supermarket" element={<Supermarket />} />
             <Route path="/billiard" element={<Billiard />} />
             <Route path="/expense" element={<Expense />} />
+            <Route path="/fridge" element={<Fridge />} />
             <Route path="/distributors" element={<Distributors />} />
             <Route path="/distributor/:id" element={<DistributorDetail />} />
           </Route>

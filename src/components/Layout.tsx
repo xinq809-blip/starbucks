@@ -22,6 +22,7 @@ const navGroups = [
     label: '财务',
     items: [
       { to: '/expense', icon: DollarSign, label: '费用管理', end: false },
+      { to: '/fridge', icon: Package, label: '冰箱管理', end: false },
     ],
   },
   {
