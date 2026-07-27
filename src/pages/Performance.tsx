@@ -288,9 +288,9 @@ function AddForm({ existing, onSave, onCancel }: { existing: PerformanceRecord[]
         </select>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        <div><label className={lbl}>目标</label><input type="number" min="0" step="0.01" value={f.target || ''} onChange={e => setF({ ...f, target: parseFloat(e.target.value) || 0 })} className={cls} /></div>
-        <div><label className={lbl}>实际</label><input type="number" min="0" step="0.01" value={f.actual || ''} onChange={e => setF({ ...f, actual: parseFloat(e.target.value) || 0 })} className={cls} /></div>
-        <div><label className={lbl}>去年同期</label><input type="number" min="0" step="0.01" value={f.lastYear || ''} onChange={e => setF({ ...f, lastYear: parseFloat(e.target.value) || 0 })} className={cls} /></div>
+        <div><label className={lbl}>目标</label><input type="text" inputMode="decimal" value={f.target || ''} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); setF({ ...f, target: parseFloat(v) || 0 }); }} className={cls} /></div>
+        <div><label className={lbl}>实际</label><input type="text" inputMode="decimal" value={f.actual || ''} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); setF({ ...f, actual: parseFloat(v) || 0 }); }} className={cls} /></div>
+        <div><label className={lbl}>去年同期</label><input type="text" inputMode="decimal" value={f.lastYear || ''} onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); setF({ ...f, lastYear: parseFloat(v) || 0 }); }} className={cls} /></div>
       </div>
       <div><label className={lbl}>备注</label><input value={f.remark} onChange={e => setF({ ...f, remark: e.target.value })} placeholder="备注" className={cls} /></div>
       <div className="flex justify-end gap-3 pt-2">
