@@ -13,7 +13,7 @@ const ALL_MONTHS = Array.from({length: 12}, (_,i) => `2026-${String(i+1).padStar
 export default function PerformancePage() {
   const [items, setItems] = useState<PerformanceRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
-  const [selectedMonth, setSelectedMonth] = useState('2026-07');
+  const [selectedMonth, setSelectedMonth] = useState('2026-01');
   const [modal, setModal] = useState(false);
 
   useEffect(() => {
@@ -157,7 +157,7 @@ export default function PerformancePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {report.data.filter(d => d.month >= '2026-05').map(d => (
+                {report.data.filter(d => d.month >= '2026-01').map(d => (
                   <tr key={d.month} className={`hover:bg-gray-50/30 ${d.month === selectedMonth ? 'bg-blue-50/30' : ''}`}
                     onClick={() => setSelectedMonth(d.month)}>
                     <td className="px-6 py-3 text-xs font-medium text-gray-800">{d.label}</td>
