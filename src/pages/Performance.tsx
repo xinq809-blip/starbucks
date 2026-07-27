@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Download, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { useApp } from '../context/AppContext';
 import type { PerformanceRecord } from '../types/performance';
 
 function genId() { return 'P' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -11,6 +12,7 @@ function fmt(n: number) { return n.toLocaleString('zh-CN', { minimumFractionDigi
 const ALL_MONTHS = Array.from({length: 12}, (_,i) => `2026-${String(i+1).padStart(2,'0')}`);
 
 export default function PerformancePage() {
+  const { state: { distributors, snapshots, restocks } } = useApp();
   const [items, setItems] = useState<PerformanceRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('2026-01');
@@ -58,8 +60,37 @@ export default function PerformancePage() {
     const ytdRate = ytdTarget > 0 ? Math.round((ytdActual / ytdTarget) * 100) : 0;
     const ytdYoy = ytdLastYear > 0 ? Math.round(((ytdActual - ytdLastYear) / ytdLastYear) * 100) : 0;
 
-    return { data, ytdTarget, ytdActual, ytdLastYear, ytdRate, ytdYoy };
+    // Quarterly sums
+    const Q = (start: number, end: number) => {
+      const q = data.filter(d => { const m = parseInt(d.month.slice(5)); return m >= start && m <= end; });
+      return { target: q.reduce((s,d)=>s+d.target,0), actual: q.reduce((s,d)=>s+d.actual,0), lastYear: q.reduce((s,d)=>s+d.lastYear,0) };
+    };
+    const quarters = [
+      { label: 'Q1 (1-3月)', ...Q(1,3) },
+      { label: 'Q2 (4-6月)', ...Q(4,6) },
+      { label: 'Q3 (7-9月)', ...Q(7,9) },
+      { label: 'Q4 (10-12月)', ...Q(10,12) },
+    ];
+    const annual = { target: data.reduce((s,d)=>s+d.target,0), actual: data.reduce((s,d)=>s+d.actual,0), lastYear: data.reduce((s,d)=>s+d.lastYear,0) };
+
+    // Gap analysis: how much more needed per remaining month
+    const remainingMonths = 12 - parseInt(selectedMonth.slice(5));
+    const annualTarget = quarters.reduce((s,q)=>s+q.target,0);
+    const gapToAnnual = annualTarget > 0 ? Math.max(0, annualTarget - ytdActual) : 0;
+    const monthlyCatchup = remainingMonths > 0 && gapToAnnual > 0 ? Math.round(gapToAnnual / remainingMonths) : 0;
+
+    return { data, ytdTarget, ytdActual, ytdLastYear, ytdRate, ytdYoy, quarters, annual, gapToAnnual, monthlyCatchup, remainingMonths };
   }, [items, selectedMonth]);
+
+  // Distributor performance: use actual sales data from system
+  const distPerf = useMemo(() => {
+    return distributors.map(d => {
+      const dRestock = (restocks || []).filter(r => r.distributorId === d.id && r.date <= selectedMonth).reduce((s, r) => s + r.quantity, 0);
+      const dStock = (snapshots || []).filter(s => s.distributorId === d.id && s.weekStart <= selectedMonth).reduce((a, s) => a + s.quantity, 0);
+      const sales = Math.max(0, dRestock - dStock);
+      return { name: d.name, region: d.region || '', sales };
+    }).sort((a, b) => b.sales - a.sales);
+  }, [distributors, restocks, snapshots, selectedMonth]);
 
   const chartData = report.data.filter(d => d.month >= '2026-01' && d.month <= selectedMonth);
 
@@ -183,9 +214,90 @@ export default function PerformancePage() {
                     </td>
                   </tr>
                 ))}
+                {/* Quarterly subtotals */}
+                {report.quarters.map(q => {
+                  const rate = q.target > 0 ? Math.round((q.actual / q.target) * 100) : 0;
+                  return (
+                    <tr key={q.label} className="bg-gray-50/80 font-medium">
+                      <td className="px-6 py-2.5 text-xs font-bold text-gray-700">{q.label}</td>
+                      <td className="px-4 py-2.5 text-right text-xs font-bold text-blue-600">{fmt(q.target)}</td>
+                      <td className="px-4 py-2.5 text-right text-xs font-bold text-gray-800">{fmt(q.actual)}</td>
+                      <td className="px-4 py-2.5 text-right"><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${rate>=100?'bg-emerald-50 text-emerald-600':rate>=80?'bg-amber-50 text-amber-600':'bg-red-50 text-red-500'}`}>{rate}%</span></td>
+                      <td className="px-4 py-2.5 text-right text-xs text-gray-500">{fmt(q.lastYear)}</td>
+                      <td className="px-4 py-2.5"></td><td className="px-4 py-2.5"></td><td className="px-4 py-2.5"></td><td className="px-3 py-2.5"></td>
+                    </tr>
+                  );
+                })}
+                {/* Annual total */}
+                <tr className="bg-gray-100 font-bold">
+                  <td className="px-6 py-3 text-xs text-gray-800">年度合计</td>
+                  <td className="px-4 py-3 text-right text-xs text-blue-600">{fmt(report.annual.target)}</td>
+                  <td className="px-4 py-3 text-right text-xs text-gray-800">{fmt(report.annual.actual)}</td>
+                  <td className="px-4 py-3 text-right"><span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">{report.annual.target>0?Math.round((report.annual.actual/report.annual.target)*100):0}%</span></td>
+                  <td className="px-4 py-3 text-right text-xs">{fmt(report.annual.lastYear)}</td>
+                  <td className="px-4 py-3"></td><td className="px-4 py-3"></td><td className="px-4 py-3"></td><td className="px-3 py-3"></td>
+                </tr>
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Gap Analysis + Distributor Performance */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Gap Analysis */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+              <AlertCircle size={16} className={report.gapToAnnual > 0 ? 'text-red-500' : 'text-emerald-500'} />
+              缺口分析
+            </h3>
+            {report.gapToAnnual > 0 ? (
+              <div className="space-y-3">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">年度目标</span>
+                  <span className="font-bold text-gray-800">{fmt(report.annual.target)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">YTD 实际</span>
+                  <span className="font-bold text-gray-800">{fmt(report.ytdActual)}</span>
+                </div>
+                <div className="flex justify-between text-sm border-t border-gray-100 pt-2">
+                  <span className="text-red-500 font-medium">剩余缺口</span>
+                  <span className="font-bold text-red-500">{fmt(report.gapToAnnual)}</span>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700">
+                  📌 剩余 {report.remainingMonths} 个月，每月需完成 <b>{fmt(report.monthlyCatchup)}</b> 才能达成年度目标
+                </div>
+              </div>
+            ) : (
+              <div className="text-emerald-600 text-sm text-center py-4">✅ 已达成年度目标！</div>
+            )}
+          </div>
+
+          {/* Distributor Performance */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <h3 className="text-sm font-bold text-gray-700 mb-3">经销商出货排名</h3>
+            <div className="space-y-2 max-h-[250px] overflow-y-auto scrollbar-thin">
+              {distPerf.map((d, i) => (
+                <div key={d.name} className="flex items-center gap-2 text-xs">
+                  <span className="text-gray-400 w-4">{i+1}</span>
+                  <span className="text-gray-500 w-10 truncate">{d.region}</span>
+                  <span className="flex-1 text-gray-700 truncate">{d.name}</span>
+                  <span className="font-bold text-gray-800">{fmt(d.sales)}</span>
+                  <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-starbucks-500 rounded-full" style={{width: `${Math.min(100, (d.sales / Math.max(...distPerf.map(x => x.sales), 1)) * 100)}%`}} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Export button */}
+        <div className="flex justify-end">
+          <button onClick={() => window.print()}
+            className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-gray-500 bg-white border border-gray-200 rounded-xl hover:bg-gray-50">
+            <Download size={14} />导出汇报图片 (打印为PDF)
+          </button>
         </div>
 
         {/* Modal */}
