@@ -51,10 +51,12 @@ export default function PerformancePage() {
       return { month: m, label: ml(m), target, actual, lastYear, rate, yoyGrowth, entry };
     });
 
-    const ytd = data.filter(d => d.month <= selectedMonth);
+    // Use all months with data for YTD, not just up to selectedMonth
+    const ytd = data.filter(d => d.target > 0 || d.actual > 0 || d.lastYear > 0);
     const ytdTarget = ytd.reduce((s, d) => s + d.target, 0);
     const ytdActual = ytd.reduce((s, d) => s + d.actual, 0);
     const ytdLastYear = ytd.reduce((s, d) => s + d.lastYear, 0);
+    const latestDataMonth = ytd.length > 0 ? ytd[ytd.length - 1].month : selectedMonth;
     const ytdRate = ytdTarget > 0 ? Math.round((ytdActual / ytdTarget) * 100) : 0;
     const ytdYoy = ytdLastYear > 0 ? Math.round(((ytdActual - ytdLastYear) / ytdLastYear) * 100) : 0;
 
@@ -77,7 +79,7 @@ export default function PerformancePage() {
     const gapToAnnual = annualTarget > 0 ? Math.max(0, annualTarget - ytdActual) : 0;
     const monthlyCatchup = remainingMonths > 0 && gapToAnnual > 0 ? Math.round(gapToAnnual / remainingMonths) : 0;
 
-    return { data, ytdTarget, ytdActual, ytdLastYear, ytdRate, ytdYoy, quarters, annual, gapToAnnual, monthlyCatchup, remainingMonths };
+    return { data, ytdTarget, ytdActual, ytdLastYear, ytdRate, ytdYoy, quarters, annual, gapToAnnual, monthlyCatchup, remainingMonths, ytdCount: ytd.length, latestDataMonth };
   }, [items, selectedMonth]);
 
   const chartData = report.data.filter(d => d.month >= '2026-01' && d.month <= selectedMonth);
@@ -111,7 +113,7 @@ export default function PerformancePage() {
                 <div className={`w-9 h-9 rounded-xl ${k[3]} flex items-center justify-center text-lg`}>{k[2]}</div>
               </div>
               <p className="text-2xl font-bold text-gray-800">{k[1] as string}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">1-{parseInt(selectedMonth.slice(5))}月累计</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{report.ytdCount > 0 ? `1-${parseInt(report.latestDataMonth.slice(5))}月累计` : '暂无数据'}</p>
             </div>
           ))}
         </div>
