@@ -82,7 +82,9 @@ export default function PerformancePage() {
     return { data, ytdTarget, ytdActual, ytdLastYear, ytdRate, ytdYoy, quarters, annual, gapToAnnual, monthlyCatchup, remainingMonths, ytdCount: ytd.length, latestDataMonth };
   }, [items, selectedMonth]);
 
-  const chartData = report.data.filter(d => d.month >= '2026-01' && d.month <= selectedMonth);
+  // Show all months with data, or at least up to the latest data month
+  const latestMonth = report.latestDataMonth || '2026-01';
+  const chartData = report.data.filter(d => d.month >= '2026-01' && d.month <= latestMonth);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
