@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { Plus, X, Download, AlertCircle } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend } from 'recharts';
 import { supabase } from '../lib/supabase';
-import { useApp } from '../context/AppContext';
 import type { PerformanceRecord } from '../types/performance';
 
 function genId() { return 'P' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
@@ -12,7 +11,6 @@ function fmt(n: number) { return n.toLocaleString('zh-CN', { minimumFractionDigi
 const ALL_MONTHS = Array.from({length: 12}, (_,i) => `2026-${String(i+1).padStart(2,'0')}`);
 
 export default function PerformancePage() {
-  const { state: { distributors, snapshots, restocks } } = useApp();
   const [items, setItems] = useState<PerformanceRecord[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [selectedMonth, setSelectedMonth] = useState('2026-01');
@@ -81,16 +79,6 @@ export default function PerformancePage() {
 
     return { data, ytdTarget, ytdActual, ytdLastYear, ytdRate, ytdYoy, quarters, annual, gapToAnnual, monthlyCatchup, remainingMonths };
   }, [items, selectedMonth]);
-
-  // Distributor performance: use actual sales data from system
-  const distPerf = useMemo(() => {
-    return distributors.map(d => {
-      const dRestock = (restocks || []).filter(r => r.distributorId === d.id && r.date <= selectedMonth).reduce((s, r) => s + r.quantity, 0);
-      const dStock = (snapshots || []).filter(s => s.distributorId === d.id && s.weekStart <= selectedMonth).reduce((a, s) => a + s.quantity, 0);
-      const sales = Math.max(0, dRestock - dStock);
-      return { name: d.name, region: d.region || '', sales };
-    }).sort((a, b) => b.sales - a.sales);
-  }, [distributors, restocks, snapshots, selectedMonth]);
 
   const chartData = report.data.filter(d => d.month >= '2026-01' && d.month <= selectedMonth);
 
@@ -242,54 +230,22 @@ export default function PerformancePage() {
           </div>
         </div>
 
-        {/* Gap Analysis + Distributor Performance */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Gap Analysis */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-              <AlertCircle size={16} className={report.gapToAnnual > 0 ? 'text-red-500' : 'text-emerald-500'} />
-              缺口分析
-            </h3>
-            {report.gapToAnnual > 0 ? (
-              <div className="space-y-3">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">年度目标</span>
-                  <span className="font-bold text-gray-800">{fmt(report.annual.target)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">YTD 实际</span>
-                  <span className="font-bold text-gray-800">{fmt(report.ytdActual)}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t border-gray-100 pt-2">
-                  <span className="text-red-500 font-medium">剩余缺口</span>
-                  <span className="font-bold text-red-500">{fmt(report.gapToAnnual)}</span>
-                </div>
-                <div className="bg-amber-50 rounded-xl p-3 text-xs text-amber-700">
-                  📌 剩余 {report.remainingMonths} 个月，每月需完成 <b>{fmt(report.monthlyCatchup)}</b> 才能达成年度目标
-                </div>
-              </div>
-            ) : (
-              <div className="text-emerald-600 text-sm text-center py-4">✅ 已达成年度目标！</div>
-            )}
-          </div>
-
-          {/* Distributor Performance */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-gray-700 mb-3">经销商出货排名</h3>
-            <div className="space-y-2 max-h-[250px] overflow-y-auto scrollbar-thin">
-              {distPerf.map((d, i) => (
-                <div key={d.name} className="flex items-center gap-2 text-xs">
-                  <span className="text-gray-400 w-4">{i+1}</span>
-                  <span className="text-gray-500 w-10 truncate">{d.region}</span>
-                  <span className="flex-1 text-gray-700 truncate">{d.name}</span>
-                  <span className="font-bold text-gray-800">{fmt(d.sales)}</span>
-                  <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-starbucks-500 rounded-full" style={{width: `${Math.min(100, (d.sales / Math.max(...distPerf.map(x => x.sales), 1)) * 100)}%`}} />
-                  </div>
-                </div>
-              ))}
+        {/* Gap Analysis */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
+            <AlertCircle size={16} className={report.gapToAnnual > 0 ? 'text-red-500' : 'text-emerald-500'} />
+            缺口分析
+          </h3>
+          {report.gapToAnnual > 0 ? (
+            <div className="grid grid-cols-4 gap-4">
+              <div className="text-center"><p className="text-xs text-gray-400">年度目标</p><p className="text-lg font-bold text-gray-800">{fmt(report.annual.target)}</p></div>
+              <div className="text-center"><p className="text-xs text-gray-400">YTD 实际</p><p className="text-lg font-bold text-emerald-600">{fmt(report.ytdActual)}</p></div>
+              <div className="text-center"><p className="text-xs text-gray-400">剩余缺口</p><p className="text-lg font-bold text-red-500">{fmt(report.gapToAnnual)}</p></div>
+              <div className="text-center"><p className="text-xs text-gray-400">每月追量</p><p className="text-lg font-bold text-amber-600">{fmt(report.monthlyCatchup)}</p></div>
             </div>
-          </div>
+          ) : (
+            <div className="text-emerald-600 text-sm text-center py-4">✅ 已达成年度目标！</div>
+          )}
         </div>
 
         {/* Export button */}
