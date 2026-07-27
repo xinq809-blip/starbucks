@@ -6,7 +6,7 @@ import type { PerformanceRecord } from '../types/performance';
 
 function genId() { return 'P' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function ml(m: string) { return m.replace('-', '年') + '月'; }
-function fmt(n: number) { return n.toLocaleString('zh-CN', { minimumFractionDigits: 0 }); }
+function fmt(n: number) { return n.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); }
 
 const ALL_MONTHS = Array.from({length: 12}, (_,i) => `2026-${String(i+1).padStart(2,'0')}`);
 
@@ -288,9 +288,9 @@ function AddForm({ existing, onSave, onCancel }: { existing: PerformanceRecord[]
         </select>
       </div>
       <div className="grid grid-cols-3 gap-4">
-        <div><label className={lbl}>目标</label><input type="number" min="0" value={f.target || ''} onChange={e => setF({ ...f, target: parseInt(e.target.value) || 0 })} className={cls} /></div>
-        <div><label className={lbl}>实际</label><input type="number" min="0" value={f.actual || ''} onChange={e => setF({ ...f, actual: parseInt(e.target.value) || 0 })} className={cls} /></div>
-        <div><label className={lbl}>去年同期</label><input type="number" min="0" value={f.lastYear || ''} onChange={e => setF({ ...f, lastYear: parseInt(e.target.value) || 0 })} className={cls} /></div>
+        <div><label className={lbl}>目标</label><input type="number" min="0" step="0.01" value={f.target || ''} onChange={e => setF({ ...f, target: parseFloat(e.target.value) || 0 })} className={cls} /></div>
+        <div><label className={lbl}>实际</label><input type="number" min="0" step="0.01" value={f.actual || ''} onChange={e => setF({ ...f, actual: parseFloat(e.target.value) || 0 })} className={cls} /></div>
+        <div><label className={lbl}>去年同期</label><input type="number" min="0" step="0.01" value={f.lastYear || ''} onChange={e => setF({ ...f, lastYear: parseFloat(e.target.value) || 0 })} className={cls} /></div>
       </div>
       <div><label className={lbl}>备注</label><input value={f.remark} onChange={e => setF({ ...f, remark: e.target.value })} placeholder="备注" className={cls} /></div>
       <div className="flex justify-end gap-3 pt-2">
