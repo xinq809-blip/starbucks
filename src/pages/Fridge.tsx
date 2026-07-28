@@ -13,6 +13,7 @@ export default function FridgePage() {
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<FridgeRecord | null>(null);
   const [adding, setAdding] = useState(false);
+  const [previewImg, setPreviewImg] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function FridgePage() {
                   <tr key={f.id} className="hover:bg-gray-50/30 transition-colors">
                     <td className="px-5 py-2.5">
                       {f.imageUrl ? (
-                        <img src={f.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-gray-100" alt="" />
+                        <img src={f.imageUrl} className="w-12 h-12 rounded-lg object-cover bg-gray-100 cursor-pointer hover:ring-2 ring-starbucks-500" alt="" onClick={e => { e.stopPropagation(); setPreviewImg(f.imageUrl); }} />
                       ) : (
                         <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center"><Camera size={16} className="text-gray-300" /></div>
                       )}
@@ -125,6 +126,14 @@ export default function FridgePage() {
             <div className="py-12 text-center text-gray-400 text-sm">暂无冰箱资产</div>
           )}
         </div>
+
+        {/* Image Preview */}
+        {previewImg && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={() => setPreviewImg(null)}>
+            <img src={previewImg} className="max-w-full max-h-[90vh] rounded-xl shadow-2xl" alt="" />
+            <button onClick={() => setPreviewImg(null)} className="absolute top-4 right-4 p-2 bg-white/20 rounded-full hover:bg-white/40"><X size={24} className="text-white" /></button>
+          </div>
+        )}
 
         {/* Modal */}
         {(modal || adding) && (
