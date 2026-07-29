@@ -13,6 +13,7 @@ import DistributorDetail from './pages/DistributorDetail';
 import Expense from './pages/Expense';
 import Fridge from './pages/Fridge';
 import Performance from './pages/Performance';
+import MonthlyReport from './pages/MonthlyReport';
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/expense" element={<Expense />} />
             <Route path="/fridge" element={<Fridge />} />
             <Route path="/performance" element={<Performance />} />
+            <Route path="/monthly-report" element={<MonthlyReport />} />
             <Route path="/distributors" element={<Distributors />} />
             <Route path="/distributor/:id" element={<DistributorDetail />} />
           </Route>
