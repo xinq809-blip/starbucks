@@ -34,9 +34,9 @@ const navGroups = [
     ],
   },
   {
-    label: '汇报',
+    label: '工作',
     items: [
-      { to: '/monthly-report', icon: FileText, label: '月度汇报', end: false },
+      { to: '/monthly-report', icon: FileText, label: '每日计划', end: false },
     ],
   },
 ];
