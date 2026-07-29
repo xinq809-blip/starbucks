@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, X, Edit3, Trash2, CheckCircle2, Target, Users, Package, TrendingUp, Store, Trophy } from 'lucide-react';
+import { Plus, X, Edit3, Trash2, Target, TrendingUp, Package, Trophy, Medal, MapPin } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
+import type { Distributor } from '../types';
 
 function genId() { return 'MR' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function ml(m: string) { return m.replace('-', '年') + '月'; }
@@ -11,7 +12,7 @@ interface Initiative { id: string; month: string; title: string; detail: string;
 const ALL_MONTHS = Array.from({length: 12}, (_,i) => `2026-${String(i+1).padStart(2,'0')}`);
 
 export default function MonthlyReportPage() {
-  const { state: { distributors, snapshots, restocks } } = useApp();
+  const { state: { distributors, snapshots, restocks, targets, products } } = useApp();
   const [month, setMonth] = useState(ALL_MONTHS[new Date().getMonth()] || '2026-07');
   const [items, setItems] = useState<Initiative[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -33,27 +34,72 @@ export default function MonthlyReportPage() {
     try { supabase.from('monthly_report').upsert(items.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {}); } catch {}
   }, [items, loaded]);
 
-  const systemData = useMemo(() => {
+  // --- Compute monthly report data ---
+  const report = useMemo(() => {
     const mStart = month + '-01';
     const mEnd = month + '-31';
 
+    // Per-distributor sales: for each dist, sum restocks - ending stock for each product
+    const distStats: { dist: Distributor; sales: number; restock: number; stock: number }[] = [];
+
+    for (const d of distributors) {
+      let distSales = 0;
+      let distRestock = 0;
+      let distStock = 0;
+
+      for (const p of products) {
+        const pRestocks = restocks.filter(r => r.date >= mStart && r.date <= mEnd && r.distributorId === d.id && r.productId === p.id);
+        const rTotal = pRestocks.reduce((s, r) => s + r.quantity, 0);
+
+        // Ending stock: latest snapshot this month for this dist+product, or 0
+        const monthSnaps = snapshots.filter(s => s.weekStart >= mStart && s.weekStart <= mEnd && s.distributorId === d.id && s.productId === p.id);
+        const endStock = monthSnaps.length > 0 ? monthSnaps.reduce((s, sn) => s + sn.quantity, 0) / monthSnaps.length : 0; // avg as approx
+
+        const pSales = Math.max(0, rTotal - endStock);
+        distSales += pSales;
+        distRestock += rTotal;
+        distStock += endStock;
+      }
+
+      if (distRestock > 0 || distStock > 0) {
+        distStats.push({ dist: d, sales: Math.round(distSales), restock: Math.round(distRestock), stock: Math.round(distStock) });
+      }
+    }
+
+    distStats.sort((a, b) => b.sales - a.sales);
+
+    const totalSales = distStats.reduce((s, d) => s + d.sales, 0);
+    const totalRestock = distStats.reduce((s, d) => s + d.restock, 0);
+    const totalStock = distStats.reduce((s, d) => s + d.stock, 0);
+
+    // Target
+    const target = targets.find(t => t.month === month);
+    const targetVal = target?.salesTarget || 0;
+    const achieveRate = targetVal > 0 ? Math.round((totalSales / targetVal) * 100) : 0;
+
+    // Region split
+    const qhd = distStats.filter(d => d.dist.region === '秦皇岛');
+    const ts = distStats.filter(d => d.dist.region === '唐山');
+    const qhdSales = qhd.reduce((s, d) => s + d.sales, 0);
+    const tsSales = ts.reduce((s, d) => s + d.sales, 0);
+
+    // Product ranking (approximate: by restock contribution)
+    const productSales: { name: string; qty: number }[] = [];
+    for (const p of products) {
+      const pRestock = restocks.filter(r => r.date >= mStart && r.date <= mEnd && r.productId === p.id).reduce((s, r) => s + r.quantity, 0);
+      if (pRestock > 0) productSales.push({ name: p.name, qty: pRestock });
+    }
+    productSales.sort((a, b) => b.qty - a.qty);
+
+    // New distributors this month
     const distWithData = new Set(snapshots.filter(s => s.weekStart >= mStart && s.weekStart <= mEnd).map(s => s.distributorId));
     const prevDistWithData = new Set(snapshots.filter(s => s.weekStart < mStart).map(s => s.distributorId));
     const newDists = [...distWithData].filter(d => !prevDistWithData.has(d)).map(d => distributors.find(x => x.id === d)?.name || d);
 
-    const mRestock = (restocks || []).filter(r => r.date >= mStart && r.date <= mEnd).reduce((s, r) => s + r.quantity, 0);
-    const mStock = snapshots.filter(s => s.weekStart >= mStart && s.weekStart <= mEnd).reduce((a, s) => a + s.quantity, 0);
-    const mSales = Math.max(0, mRestock - mStock);
-
-    const activeDists = new Set((restocks || []).filter(r => r.date >= mStart && r.date <= mEnd).map(r => r.distributorId)).size;
-
-    return { newDists, mSales, mRestock, activeDists };
-  }, [month, distributors, snapshots, restocks]);
+    return { distStats, totalSales, totalRestock, totalStock, targetVal, achieveRate, qhdSales, tsSales, productSales: productSales.slice(0, 10), newDists };
+  }, [month, distributors, snapshots, restocks, targets, products]);
 
   const monthItems = items.filter(i => i.month === month);
-  const doneCount = monthItems.filter(i => i.status === 'done').length;
-  const avgProgress = monthItems.length > 0 ? Math.round(monthItems.reduce((s, i) => s + i.progress, 0) / monthItems.length) : 0;
-
   const save = (d: Initiative) => {
     setItems(prev => prev.find(i => i.id === d.id) ? prev.map(i => i.id === d.id ? d : i) : [...prev, d]);
     setModal(false); setEditing(null);
@@ -68,7 +114,7 @@ export default function MonthlyReportPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">月度工作汇报</h1>
-            <p className="text-sm text-gray-400 mt-0.5">成果展示 · 事项跟进 · 向领导汇报</p>
+            <p className="text-sm text-gray-400 mt-0.5">业绩达成 · 经销商分析 · 事项跟进</p>
           </div>
           <select value={month} onChange={e => setMonth(e.target.value)}
             className="border border-gray-200 rounded-xl px-4 py-2 text-sm font-medium bg-white focus:outline-none focus:ring-2 focus:ring-starbucks-200 hover:border-gray-300 transition-colors cursor-pointer">
@@ -76,81 +122,165 @@ export default function MonthlyReportPage() {
           </select>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { label: '本月出货', value: systemData.mSales.toLocaleString(), unit: '件', icon: TrendingUp, color: 'blue' },
-            { label: '进货总量', value: systemData.mRestock.toLocaleString(), unit: '件', icon: Package, color: 'emerald' },
-            { label: '活跃客户', value: String(systemData.activeDists), unit: '家', icon: Users, color: 'amber' },
-            { label: '新增网点', value: String(systemData.newDists.length), unit: '个', icon: Store, color: 'violet' },
-          ].map(s => {
-            const colors: Record<string, string> = {
-              blue: 'bg-blue-50 text-blue-600',
-              emerald: 'bg-emerald-50 text-emerald-600',
-              amber: 'bg-amber-50 text-amber-600',
-              violet: 'bg-violet-50 text-violet-600',
-            };
-            return (
-              <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 hover:shadow-md transition-shadow">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${colors[s.color]}`}>
-                    <s.icon size={17} />
-                  </div>
-                  <span className="text-xs text-gray-400">{s.label}</span>
+        {/* 1. Performance Overview */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2.5">
+            <Target size={15} className="text-starbucks-500" />
+            <h3 className="text-sm font-bold text-gray-700">业绩达成</h3>
+          </div>
+          <div className="p-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+              <div className="text-center">
+                <p className="text-[11px] text-gray-400 mb-1">本月目标</p>
+                <p className="text-2xl font-bold text-gray-800">{report.targetVal > 0 ? report.targetVal.toLocaleString() : '—'}</p>
+                <p className="text-[11px] text-gray-400">件</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[11px] text-gray-400 mb-1">实际销售</p>
+                <p className="text-2xl font-bold text-gray-800">{report.totalSales.toLocaleString()}</p>
+                <p className="text-[11px] text-gray-400">件</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[11px] text-gray-400 mb-1">达成率</p>
+                <p className={`text-2xl font-bold ${report.achieveRate >= 100 ? 'text-emerald-600' : report.achieveRate >= 80 ? 'text-starbucks-600' : 'text-amber-600'}`}>
+                  {report.targetVal > 0 ? report.achieveRate + '%' : '—'}
+                </p>
+                <p className="text-[11px] text-gray-400">vs 目标</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[11px] text-gray-400 mb-1">差距</p>
+                <p className={`text-2xl font-bold ${report.targetVal > report.totalSales ? 'text-red-500' : 'text-emerald-600'}`}>
+                  {report.targetVal > 0 ? (report.targetVal > report.totalSales ? (report.targetVal - report.totalSales).toLocaleString() : '0') : '—'}
+                </p>
+                <p className="text-[11px] text-gray-400">{report.targetVal > report.totalSales ? '仍需追赶' : '已超额完成'}</p>
+              </div>
+            </div>
+
+            {/* Achievement progress bar */}
+            {report.targetVal > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] text-gray-400">
+                  <span>达成进度</span>
+                  <span>{report.achieveRate}%</span>
                 </div>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-bold text-gray-800">{s.value}</span>
-                  <span className="text-xs text-gray-400">{s.unit}</span>
+                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-500 ${report.achieveRate >= 100 ? 'bg-emerald-500' : report.achieveRate >= 80 ? 'bg-starbucks-500' : 'bg-amber-500'}`}
+                    style={{ width: `${Math.min(report.achieveRate, 100)}%` }} />
                 </div>
               </div>
-            );
-          })}
+            )}
+
+            {/* Region split */}
+            {(report.qhdSales > 0 || report.tsSales > 0) && (
+              <div className="grid grid-cols-2 gap-4 mt-5 pt-5 border-t border-gray-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
+                    <MapPin size={17} className="text-blue-500" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400">秦皇岛</p>
+                    <p className="text-lg font-bold text-gray-800">{report.qhdSales.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
+                    <MapPin size={17} className="text-emerald-500" />
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400">唐山</p>
+                    <p className="text-lg font-bold text-gray-800">{report.tsSales.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Progress overview */}
-        {monthItems.length > 0 && (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-starbucks-50 flex items-center justify-center">
-                <Target size={17} className="text-starbucks-500" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400">重点事项</p>
-                <p className="text-lg font-bold text-gray-800">{monthItems.length} <span className="text-xs font-normal text-gray-400">项</span></p>
-              </div>
+        {/* 2. Distributor Performance */}
+        {report.distStats.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2.5">
+              <Trophy size={15} className="text-amber-500" />
+              <h3 className="text-sm font-bold text-gray-700">经销商销售排名</h3>
+              <span className="text-[11px] text-gray-400">销售 = 进货 - 库存</span>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center">
-                <CheckCircle2 size={17} className="text-emerald-500" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400">已完成</p>
-                <p className="text-lg font-bold text-gray-800">{doneCount} <span className="text-xs font-normal text-gray-400">/ {monthItems.length}</span></p>
-              </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-50 text-[11px] text-gray-400">
+                    <th className="text-left px-5 py-2.5 font-medium w-8">#</th>
+                    <th className="text-left px-3 py-2.5 font-medium">经销商</th>
+                    <th className="text-left px-3 py-2.5 font-medium">区域</th>
+                    <th className="text-right px-3 py-2.5 font-medium">销售</th>
+                    <th className="text-right px-3 py-2.5 font-medium">进货</th>
+                    <th className="text-right px-3 py-2.5 font-medium">库存</th>
+                    <th className="text-right px-3 py-2.5 font-medium">占比</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {report.distStats.map((d, idx) => {
+                    const share = report.totalSales > 0 ? Math.round((d.sales / report.totalSales) * 100) : 0;
+                    return (
+                      <tr key={d.dist.id} className="hover:bg-gray-50/30 transition-colors">
+                        <td className="px-5 py-3">
+                          {idx < 3
+                            ? <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-amber-100 text-amber-700">{idx + 1}</span>
+                            : <span className="text-xs text-gray-400 pl-1">{idx + 1}</span>}
+                        </td>
+                        <td className="px-3 py-3 text-xs font-medium text-gray-800">{d.dist.name}</td>
+                        <td className="px-3 py-3 text-xs text-gray-500">{d.dist.region}</td>
+                        <td className="px-3 py-3 text-xs font-semibold text-gray-800 text-right">{d.sales.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-xs text-gray-500 text-right">{d.restock.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-xs text-gray-500 text-right">{d.stock.toLocaleString()}</td>
+                        <td className="px-3 py-3 text-xs text-gray-500 text-right">{share}%</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center">
-                <TrendingUp size={17} className="text-amber-500" />
-              </div>
-              <div>
-                <p className="text-[11px] text-gray-400">平均进度</p>
-                <p className="text-lg font-bold text-gray-800">{avgProgress}%</p>
+          </div>
+        )}
+
+        {/* 3. Product Ranking */}
+        {report.productSales.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2.5">
+              <Package size={15} className="text-starbucks-500" />
+              <h3 className="text-sm font-bold text-gray-700">产品出货排名 Top 10</h3>
+            </div>
+            <div className="p-4">
+              <div className="space-y-2">
+                {report.productSales.map((p, idx) => {
+                  const maxQty = report.productSales[0]?.qty || 1;
+                  const pct = Math.round((p.qty / maxQty) * 100);
+                  return (
+                    <div key={p.name} className="flex items-center gap-3">
+                      <span className="text-[11px] font-bold text-gray-400 w-5 text-right">{idx + 1}</span>
+                      <span className="text-xs text-gray-700 w-36 truncate">{p.name}</span>
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-starbucks-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs font-semibold text-gray-600 w-16 text-right tabular-nums">{p.qty.toLocaleString()}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* New distributors */}
-        {systemData.newDists.length > 0 && (
+        {/* 4. New distributors */}
+        {report.newDists.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2.5">
-              <Store size={15} className="text-violet-500" />
+              <Medal size={15} className="text-violet-500" />
               <h3 className="text-sm font-bold text-gray-700">本月新开网点</h3>
-              <span className="text-[11px] text-gray-400">当月新拓展的分销商及终端</span>
+              <span className="text-[11px] text-gray-400">{report.newDists.length} 个</span>
             </div>
             <div className="p-4">
               <div className="flex flex-wrap gap-2">
-                {systemData.newDists.map((n: string, idx: number) => (
+                {report.newDists.map((n: string, idx: number) => (
                   <span key={n} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-violet-50 text-violet-700 rounded-lg text-xs font-medium">
                     <span className="w-4 h-4 rounded-full bg-violet-200 text-violet-600 flex items-center justify-center text-[10px] font-bold">{idx + 1}</span>
                     {n}
@@ -161,13 +291,13 @@ export default function MonthlyReportPage() {
           </div>
         )}
 
-        {/* Key Initiatives */}
+        {/* 5. Key Initiatives */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-3.5 border-b border-gray-50 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <Target size={15} className="text-starbucks-500" />
+              <TrendingUp size={15} className="text-starbucks-500" />
               <h3 className="text-sm font-bold text-gray-700">重点事项跟进</h3>
-              <span className="text-[11px] text-gray-400">本月关键工作及完成进度</span>
+              <span className="text-[11px] text-gray-400">本月关键工作事项</span>
             </div>
             <button onClick={() => { setEditing(null); setModal(true); }}
               className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium bg-starbucks-500 text-white rounded-lg hover:bg-starbucks-600 transition-colors">
@@ -176,12 +306,12 @@ export default function MonthlyReportPage() {
           </div>
 
           {monthItems.length === 0 ? (
-            <div className="py-14 text-center">
+            <div className="py-12 text-center">
               <div className="w-12 h-12 mx-auto mb-3 rounded-xl bg-gray-100 flex items-center justify-center">
-                <Target size={20} className="text-gray-300" />
+                <TrendingUp size={20} className="text-gray-300" />
               </div>
               <p className="text-sm text-gray-400">本月暂无重点事项</p>
-              <p className="text-xs text-gray-300 mt-1">点击右上角「添加事项」开始记录</p>
+              <p className="text-xs text-gray-300 mt-1">点击「添加事项」记录本月重点工作</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-50">
@@ -190,17 +320,14 @@ export default function MonthlyReportPage() {
                   <div className="flex items-start gap-4">
                     <div className="flex flex-col items-center gap-2 pt-0.5 flex-shrink-0">
                       <span className="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center text-[11px] font-bold text-gray-500">{idx + 1}</span>
-                      {idx < monthItems.length - 1 && <div className="w-px flex-1 min-h-[16px] bg-gray-200" />}
+                      {idx < monthItems.length - 1 && <div className="w-px flex-1 bg-gray-200" />}
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-bold text-gray-800">{item.title}</h4>
                           <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
-                            item.status === 'done'
-                              ? 'bg-emerald-50 text-emerald-600'
-                              : 'bg-amber-50 text-amber-600'
+                            item.status === 'done' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
                           }`}>
                             {item.status === 'done' ? '已完成' : '进行中'}
                           </span>
@@ -210,23 +337,17 @@ export default function MonthlyReportPage() {
                           <button onClick={() => del(item.id)} className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
                         </div>
                       </div>
-
                       {item.detail && <p className="text-xs text-gray-500 mt-1 leading-relaxed">{item.detail}</p>}
-
                       <div className="mt-3 flex items-center gap-3">
                         <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              item.progress >= 100 ? 'bg-emerald-500' : item.progress >= 50 ? 'bg-starbucks-500' : 'bg-amber-400'
-                            }`}
-                            style={{ width: `${Math.min(item.progress, 100)}%` }}
-                          />
+                          <div className={`h-full rounded-full transition-all duration-500 ${
+                            item.progress >= 100 ? 'bg-emerald-500' : item.progress >= 50 ? 'bg-starbucks-500' : 'bg-amber-400'
+                          }`} style={{ width: `${Math.min(item.progress, 100)}%` }} />
                         </div>
                         <span className={`text-xs font-bold w-10 text-right tabular-nums ${
                           item.progress >= 100 ? 'text-emerald-600' : item.progress >= 50 ? 'text-starbucks-600' : 'text-amber-600'
                         }`}>{item.progress}%</span>
                       </div>
-
                       {item.result && (
                         <div className="mt-3 p-3 bg-amber-50/50 rounded-xl border border-amber-100/50">
                           <div className="flex items-start gap-2">
