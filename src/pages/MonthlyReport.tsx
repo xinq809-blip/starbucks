@@ -58,27 +58,38 @@ export default function DailyPlanPage() {
 
   const [loaded, setLoaded] = useState(false);
 
+  // Load: localStorage first (fast), then Supabase (authoritative if available)
   useEffect(() => {
+    try {
+      const local = localStorage.getItem('daily_work_logs');
+      if (local) setLogs(JSON.parse(local));
+      const localP = localStorage.getItem('daily_pending');
+      if (localP) setPending(JSON.parse(localP));
+    } catch {}
     (async () => {
       try {
         const [logRes, pendRes] = await Promise.all([
           supabase.from('work_logs').select('*'),
           supabase.from('monthly_pending').select('*'),
         ]);
-        setLogs((logRes.data || []).map((r: any) => r.data));
-        setPending((pendRes.data || []).map((r: any) => r.data));
+        if (logRes.data?.length) setLogs(logRes.data.map((r: any) => r.data));
+        if (pendRes.data?.length) setPending(pendRes.data.map((r: any) => r.data));
       } catch {}
       setLoaded(true);
     })();
   }, []);
 
+  // Save logs to localStorage + Supabase
   useEffect(() => {
     if (!loaded) return;
+    localStorage.setItem('daily_work_logs', JSON.stringify(logs));
     try { supabase.from('work_logs').upsert(logs.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {}); } catch {}
   }, [logs, loaded]);
 
+  // Save pending to localStorage + Supabase
   useEffect(() => {
     if (!loaded) return;
+    localStorage.setItem('daily_pending', JSON.stringify(pending));
     try { supabase.from('monthly_pending').upsert(pending.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {}); } catch {}
   }, [pending, loaded]);
 
