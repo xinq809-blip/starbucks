@@ -51,9 +51,21 @@ function reducer(state: AppState, action: Action): AppState {
 function loadLocalDistributors(): Distributor[] {
   try {
     const r = localStorage.getItem('sb_distributors_v2');
-    if (r) return JSON.parse(r);
+    if (r) return migrateRoles(JSON.parse(r));
   } catch {}
   return initialDistributors;
+}
+
+// Ensure all distributors have a role assigned
+function migrateRoles(dists: Distributor[]): Distributor[] {
+  if (dists.length === 0) return dists;
+  // If any dist already has a role, skip migration
+  if (dists.some(d => d.role)) return dists;
+  // Auto-assign: 辰日 → main, others → sub
+  return dists.map(d => ({
+    ...d,
+    role: (d.name.includes('辰日') ? 'main' : 'sub') as 'main' | 'sub',
+  }));
 }
 
 const initialState: AppState = {
