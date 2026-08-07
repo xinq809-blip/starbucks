@@ -3,6 +3,25 @@ import { useApp } from '../context/AppContext';
 import { getAvailableWeeks } from '../data/mockData';
 import { Save, Check, Search, Copy, Trash2, Package, Truck } from 'lucide-react';
 
+// Simplified groups for main distributor entry
+const MAIN_GROUPS = [
+  { key: 'star', label: '星选系列4味合计', ids: ['p03','p04','p05','p06'], price: 93.75 },
+  { key: 'coconut', label: 'P270 椰椰拿铁', ids: ['p20'], price: 75 },
+  { key: 'p450', label: 'P450 黑咖啡', ids: ['p11'], price: 93.75 },
+  { key: 'other', label: '其余产品', ids: ['p01','p02','p07','p08','p09','p10','p12','p13','p14','p15','p16','p17','p18','p19','p21','p22'], price: 60 },
+];
+
+function isMain(d: any) { return d.role === 'main' || d.name.includes('辰日'); }
+
+// Split quantity evenly across product IDs, returning map of productId → qty
+function splitQty(total: number, ids: string[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  const each = Math.floor(total / ids.length);
+  let remainder = total - each * ids.length;
+  for (const id of ids) { map[id] = each + (remainder > 0 ? 1 : 0); remainder--; }
+  return map;
+}
+
 export default function DataEntry() {
   const { state, saveWeek, addRestock, editRestock, deleteRestock } = useApp();
   const { products, distributors, snapshots, restocks } = state;
@@ -11,7 +30,7 @@ export default function DataEntry() {
 
   const [tab, setTab] = useState<'stock' | 'restock'>('stock');
 
-  // === 库存盘点 state ===
+  // Stock state
   const [stockDate, setStockDate] = useState(() => {
     try { return localStorage.getItem('sb_stock_date') || today; } catch { return today; }
   });
@@ -21,7 +40,7 @@ export default function DataEntry() {
   const [stockSearch, setStockSearch] = useState('');
   const [saved, setSaved] = useState(false);
 
-  // === 进货录入 state ===
+  // Restock state
   const [restockDate, setRestockDate] = useState(() => {
     try { return localStorage.getItem('sb_restock_date') || today; } catch { return today; }
   });
@@ -29,6 +48,10 @@ export default function DataEntry() {
   const [restockDist, setRestockDist] = useState(distributors[0]?.id || '');
   const [restockInputs, setRestockInputs] = useState<Record<string, { val: string; added: number }>>({});
   const [restockSearch, setRestockSearch] = useState('');
+
+  // Is current distributor the main one?
+  const stockIsMain = isMain(distributors.find(d => d.id === stockDist));
+  const restockIsMain = isMain(distributors.find(d => d.id === restockDist));
 
   // Load stock data
   const loadStock = useCallback((date: string) => {
@@ -56,7 +79,7 @@ export default function DataEntry() {
   useEffect(() => { loadStock(stockDate); }, [stockDate, loadStock]);
   useEffect(() => { loadRestocks(restockDate); }, [restockDate, loadRestocks]);
 
-  // Previous stock for reference
+  // Previous date
   const prevDate = availableWeeks.filter(w => w < stockDate).sort().reverse()[0] || null;
   const prevStock: Record<string, number> = {};
   if (prevDate) {
@@ -66,11 +89,43 @@ export default function DataEntry() {
     }
   }
 
-  // === Stock handlers ===
+  // --- Helpers: aggregate group data from product-level ---
+  const getGroupStock = (grp: typeof MAIN_GROUPS[0]) => {
+    let total = 0;
+    for (const pid of grp.ids) {
+      const v = stockData[`${pid}_${stockDist}`];
+      if (v >= 0) total += v;
+    }
+    return total;
+  };
+  const getGroupPrevStock = (grp: typeof MAIN_GROUPS[0]) => {
+    let total = 0;
+    for (const pid of grp.ids) total += prevStock[`${pid}_${stockDist}`] || 0;
+    return total;
+  };
+  const getGroupRestockAdded = (grp: typeof MAIN_GROUPS[0]) => {
+    let total = 0;
+    for (const pid of grp.ids) total += restockInputs[`${pid}_${restockDist}`]?.added || 0;
+    return total;
+  };
+  const getGroupRestockVal = (grp: typeof MAIN_GROUPS[0]) => {
+    for (const pid of grp.ids) {
+      const v = restockInputs[`${pid}_${restockDist}`]?.val;
+      if (v) return v;
+    }
+    return '';
+  };
+
+  // --- Stock handlers ---
   const getStock = (pid: string) => { const v = stockData[`${pid}_${stockDist}`]; return v >= 0 ? v : ''; };
   const setStock = (pid: string, v: string) => {
     const n = v === '' ? -1 : parseInt(v);
     setStockData(prev => ({ ...prev, [`${pid}_${stockDist}`]: isNaN(n) ? -1 : n }));
+  };
+  const setGroupStock = (grp: typeof MAIN_GROUPS[0], v: string) => {
+    const n = parseInt(v) || 0;
+    const dist = splitQty(n, grp.ids);
+    for (const pid of grp.ids) setStock(pid, String(dist[pid]));
   };
   const handleSaveStock = () => {
     const entries = Object.entries(stockData).filter(([, q]) => q >= 0).map(([k, q]) => { const [pid, did] = k.split('_'); return { productId: pid, distributorId: did, quantity: q }; });
@@ -88,12 +143,24 @@ export default function DataEntry() {
     setStockData(sd);
   };
 
-  // === Restock handlers ===
-  const getRVal = (pid: string) => restockInputs[`${pid}_${restockDist}`]?.val ?? '';
+  // --- Restock handlers ---
   const getRAdded = (pid: string) => restockInputs[`${pid}_${restockDist}`]?.added ?? 0;
+  const getRVal = (pid: string) => restockInputs[`${pid}_${restockDist}`]?.val ?? '';
   const setRVal = (pid: string, v: string) => {
     const key = `${pid}_${restockDist}`;
     setRestockInputs(prev => ({ ...prev, [key]: { ...prev[key], val: v } }));
+  };
+  const addOneGroup = (grp: typeof MAIN_GROUPS[0]) => {
+    const val = getGroupRestockVal(grp);
+    const n = parseInt(val) || 0;
+    if (n <= 0) return;
+    const dist = splitQty(n, grp.ids);
+    for (const pid of grp.ids) {
+      const q = dist[pid];
+      addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid, distributorId: restockDist, quantity: q, weekStart: restockDate });
+      const key = `${pid}_${restockDist}`;
+      setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + q } }));
+    }
   };
   const addOne = (pid: string) => {
     const key = `${pid}_${restockDist}`;
@@ -123,25 +190,18 @@ export default function DataEntry() {
     return products.filter(p => p.name.toLowerCase().includes(q) || p.sku.toLowerCase().includes(q));
   }, [products, restockSearch]);
 
-  const stockPct = Math.round((Object.values(stockData).filter(v => v >= 0).length / (products.length * distributors.length)) * 100);
   const restockDistName = distributors.find(d => d.id === restockDist)?.name || '';
 
-  // Shared distributor tabs component
-  const DistTabs = ({ active, onChange, dataKey }: { active: string; onChange: (id: string) => void; dataKey: 'stock' | 'restock' }) => (
+  const DistTabs = ({ active, onChange }: { active: string; onChange: (id: string) => void }) => (
     <div className="flex gap-1.5 overflow-x-auto">
-      {distributors.map(d => {
-        const pct = dataKey === 'stock'
-          ? Math.round((products.filter(p => stockData[`${p.id}_${d.id}`] >= 0).length / products.length) * 100)
-          : 0;
-        return (
-          <button key={d.id} onClick={() => onChange(d.id)}
-            className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
-              active === d.id ? 'bg-white border border-gray-200 shadow-sm text-gray-800' : 'bg-white/60 border border-transparent text-gray-500 hover:bg-white'
-            }`}>
-            {d.name}{dataKey === 'stock' && <span className={`ml-1.5 ${pct === 100 ? 'text-emerald-500' : 'text-gray-400'}`}>{pct}%</span>}
-          </button>
-        );
-      })}
+      {distributors.map(d => (
+        <button key={d.id} onClick={() => onChange(d.id)}
+          className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+            active === d.id ? 'bg-white border border-gray-200 shadow-sm text-gray-800' : 'bg-white/60 border border-transparent text-gray-500 hover:bg-white'
+          }`}>
+          {d.name}
+        </button>
+      ))}
     </div>
   );
 
@@ -166,103 +226,153 @@ export default function DataEntry() {
       {/* ==================== 库存盘点 ==================== */}
       {tab === 'stock' && (
         <div className="space-y-4">
-          {/* Date + toolbar */}
           <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
             <span className="text-xs font-medium text-gray-500">盘点日期</span>
             <input type="date" value={stockDate} onChange={e => setStockDate(e.target.value)} className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:border-gray-400" />
-            {prevDate && (
-              <button onClick={copyPrev} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 flex items-center gap-1">
-                <Copy size={12} />从上次复制
-              </button>
-            )}
+            {prevDate && <button onClick={copyPrev} className="text-xs px-3 py-1.5 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 flex items-center gap-1"><Copy size={12} />从上次复制</button>}
             <div className="flex-1" />
             <div className="flex items-center gap-3">
-              <div className="w-24 h-2 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${stockPct === 100 ? 'bg-emerald-500' : 'bg-starbucks-500'}`} style={{ width: `${stockPct}%` }} /></div>
-              <span className="text-xs text-gray-400">{stockPct}%</span>
               {saved && <span className="text-xs text-emerald-600 font-medium"><Check size={14} className="inline mr-0.5" />已保存</span>}
               <button onClick={handleSaveStock} className="px-5 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 flex items-center gap-1.5"><Save size={15} />保存库存</button>
             </div>
           </div>
 
-          {/* Distributor tabs */}
-          <DistTabs active={stockDist} onChange={setStockDist} dataKey="stock" />
+          <DistTabs active={stockDist} onChange={setStockDist} />
 
-          {/* Search */}
-          <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" /><input value={stockSearch} onChange={e => setStockSearch(e.target.value)} placeholder="搜索产品..." className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm w-full max-w-[240px] focus:outline-none focus:border-gray-400" /></div>
-
-          {/* Stock entry card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
-              {stockProducts.map(p => {
-                const key = `${p.id}_${stockDist}`;
-                const prev = prevStock[key] || 0;
-                const curr = getStock(p.id);
-                const currNum = curr === '' ? 0 : (curr as number);
-                const changed = prev !== currNum;
-                return (
-                  <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/30">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
-                      <p className="text-[10px] text-gray-400">{p.spec} · ¥{p.unitPrice}</p>
-                    </div>
-                    {prevDate && (
-                      <div className="text-center w-16 flex-shrink-0">
-                        <p className="text-[10px] text-gray-400">上次</p>
-                        <p className="text-sm text-gray-500 font-medium">{prev}</p>
+          {/* Main distributor: grouped entry */}
+          {stockIsMain ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="divide-y divide-gray-50">
+                {MAIN_GROUPS.map(grp => {
+                  const total = getGroupStock(grp);
+                  const prev = getGroupPrevStock(grp);
+                  return (
+                    <div key={grp.key} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/30">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800">{grp.label}</p>
+                        <p className="text-[10px] text-gray-400">{grp.ids.length}款产品 · ¥{grp.price}/件</p>
                       </div>
-                    )}
-                    <input type="number" min="0" value={curr} onChange={e => setStock(p.id, e.target.value)}
-                      placeholder="库存数" className={`w-20 text-center font-bold rounded-xl border-2 px-3 py-2.5 focus:outline-none text-sm ${changed && curr !== '' ? 'border-amber-300 bg-amber-50 text-amber-700' : curr !== '' ? 'border-gray-200 bg-white text-gray-800' : 'border-dashed border-gray-200 text-gray-300'}`} />
-                  </div>
-                );
-              })}
+                      {prevDate && (
+                        <div className="text-center w-16 flex-shrink-0">
+                          <p className="text-[10px] text-gray-400">上次</p>
+                          <p className="text-sm text-gray-500 font-medium">{prev}</p>
+                        </div>
+                      )}
+                      <input type="number" min="0" value={total > 0 ? total : ''} onChange={e => setGroupStock(grp, e.target.value)}
+                        placeholder="合计数量" className="w-24 text-center font-bold rounded-xl border-2 px-3 py-3 focus:outline-none text-sm border-gray-200 bg-white text-gray-800" />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Sub distributors: full product list */
+            <>
+              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" /><input value={stockSearch} onChange={e => setStockSearch(e.target.value)} placeholder="搜索产品..." className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm w-full max-w-[240px] focus:outline-none focus:border-gray-400" /></div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="divide-y divide-gray-50 max-h-[60vh] overflow-y-auto">
+                  {stockProducts.map(p => {
+                    const curr = getStock(p.id);
+                    const currNum = curr === '' ? 0 : (curr as number);
+                    const prev = prevStock[`${p.id}_${stockDist}`] || 0;
+                    const changed = prev !== currNum;
+                    return (
+                      <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                          <p className="text-[10px] text-gray-400">{p.spec} · ¥{p.unitPrice}</p>
+                        </div>
+                        {prevDate && (
+                          <div className="text-center w-16 flex-shrink-0">
+                            <p className="text-[10px] text-gray-400">上次</p>
+                            <p className="text-sm text-gray-500 font-medium">{prev}</p>
+                          </div>
+                        )}
+                        <input type="number" min="0" value={curr} onChange={e => setStock(p.id, e.target.value)}
+                          placeholder="0" className={`w-20 text-center font-bold rounded-xl border-2 px-3 py-2.5 focus:outline-none text-sm ${changed && curr !== '' ? 'border-amber-300 bg-amber-50 text-amber-700' : curr !== '' ? 'border-gray-200 bg-white text-gray-800' : 'border-dashed border-gray-200 text-gray-300'}`} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
 
       {/* ==================== 进货录入 ==================== */}
       {tab === 'restock' && (
         <div className="space-y-4">
-          {/* Date + toolbar */}
           <div className="flex flex-wrap items-center gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-4 py-3">
             <span className="text-xs font-medium text-gray-500">进货日期</span>
             <input type="date" value={restockDate} onChange={e => setRestockDate(e.target.value)} className="border border-amber-200 rounded-lg px-3 py-2 text-sm font-medium bg-amber-50/30 focus:outline-none focus:border-amber-400" />
-            <span className="text-[11px] text-gray-400">按回车或点 + 确认每行</span>
+            <span className="text-[11px] text-gray-400">填数量后回车或点 + </span>
           </div>
 
-          {/* Distributor tabs */}
-          <DistTabs active={restockDist} onChange={setRestockDist} dataKey="restock" />
+          <DistTabs active={restockDist} onChange={setRestockDist} />
 
-          {/* Search */}
-          <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" /><input value={restockSearch} onChange={e => setRestockSearch(e.target.value)} placeholder="搜索产品..." className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm w-full max-w-[240px] focus:outline-none focus:border-gray-400" /></div>
-
-          {/* Restock entry card */}
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <div className="divide-y divide-gray-50 max-h-[50vh] overflow-y-auto">
-              {restockProducts.map(p => {
-                const added = getRAdded(p.id);
-                const val = getRVal(p.id);
-                return (
-                  <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/30">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
-                      <p className="text-[10px] text-gray-400">{p.spec}</p>
+          {/* Main distributor: grouped restock entry */}
+          {restockIsMain ? (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="divide-y divide-gray-50 max-h-[50vh] overflow-y-auto">
+                {MAIN_GROUPS.map(grp => {
+                  const added = getGroupRestockAdded(grp);
+                  const val = getGroupRestockVal(grp);
+                  return (
+                    <div key={grp.key} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/30">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800">{grp.label}</p>
+                        <p className="text-[10px] text-gray-400">{grp.ids.length}款 · ¥{grp.price}/件</p>
+                      </div>
+                      {added > 0 && <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">已录 +{added}</span>}
+                      <div className="flex items-center gap-1">
+                        <input type="number" min="0" value={val} onChange={e => {
+                          // Set the same val for all products in group (only first one for display)
+                          const key0 = `${grp.ids[0]}_${restockDist}`;
+                          setRestockInputs(prev => ({ ...prev, [key0]: { ...prev[key0], val: e.target.value } }));
+                        }}
+                          onKeyDown={e => { if (e.key === 'Enter') addOneGroup(grp); }}
+                          placeholder="合计数量" className="w-24 text-center border border-dashed border-amber-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50/20" />
+                        {val && parseInt(val) > 0 && (
+                          <button onClick={() => addOneGroup(grp)} className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold hover:bg-amber-600">+</button>
+                        )}
+                      </div>
                     </div>
-                    {added > 0 && <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">已录 +{added}</span>}
-                    <div className="flex items-center gap-1">
-                      <input type="number" min="0" value={val} onChange={e => setRVal(p.id, e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') addOne(p.id); }}
-                        placeholder="进货量" className="w-20 text-center border border-dashed border-amber-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50/20" />
-                      {val && parseInt(val) > 0 && (
-                        <button onClick={() => addOne(p.id)} className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold hover:bg-amber-600">+</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Sub distributors: full product list */
+            <>
+              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" /><input value={restockSearch} onChange={e => setRestockSearch(e.target.value)} placeholder="搜索产品..." className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm w-full max-w-[240px] focus:outline-none focus:border-gray-400" /></div>
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <div className="divide-y divide-gray-50 max-h-[50vh] overflow-y-auto">
+                  {restockProducts.map(p => {
+                    const added = getRAdded(p.id);
+                    const val = getRVal(p.id);
+                    return (
+                      <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/30">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                          <p className="text-[10px] text-gray-400">{p.spec}</p>
+                        </div>
+                        {added > 0 && <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">已录 +{added}</span>}
+                        <div className="flex items-center gap-1">
+                          <input type="number" min="0" value={val} onChange={e => setRVal(p.id, e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') addOne(p.id); }}
+                            placeholder="数量" className="w-20 text-center border border-dashed border-amber-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50/20" />
+                          {val && parseInt(val) > 0 && (
+                            <button onClick={() => addOne(p.id)} className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold hover:bg-amber-600">+</button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Restock summary */}
           {restocks.filter(r => r.date === restockDate && r.distributorId === restockDist).length > 0 && (
