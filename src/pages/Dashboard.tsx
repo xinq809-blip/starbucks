@@ -7,12 +7,11 @@ import {
 } from '../data/mockData';
 import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import {
-  TrendingUp, Package, AlertCircle,
-  DollarSign, Clock, Target, Download,
+  AlertCircle,
+  Clock, Download,
 } from 'lucide-react';
 
 const PIE_COLORS = ['#00704A', '#2ea86e', '#f59e0b', '#8b5cf6', '#ef4444', '#3b82f6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#6366f1'];
-const FOCUS_IDS = ['p11', 'p20']; // P450 黑咖啡, P270 椰椰拿铁
 
 export default function Dashboard() {
   const { state, saveTarget } = useApp();
@@ -61,16 +60,6 @@ export default function Dashboard() {
     return { stock, prevStock, restock: r, sales };
   };
 
-  const calcGroup = (ids: string[], curr: string, prev: string | null) => {
-    let stock = 0, prevStock = 0, restock = 0;
-    for (const id of ids) {
-      const d = calcDist(id, curr, prev);
-      stock += d.stock; prevStock += d.prevStock; restock += d.restock;
-    }
-    const sales = Math.max(0, prevStock + restock - stock);
-    return { stock, prevStock, restock, sales };
-  };
-
   const calcProduct = (productId: string, ids: string[], curr: string, prev: string | null) => {
     let stock = 0, prevStock = 0, restock = 0;
     for (const id of ids) {
@@ -84,22 +73,16 @@ export default function Dashboard() {
 
   // ====== Section 1: 总经销 vs 分销商 ======
   const mainIds = subDists.length > 0 ? subDists.map(d => d.id) : distributors.filter(d => d.id !== mainDist?.id).map(d => d.id);
-  const subIds = subDists.map(d => d.id);
 
-  const mainGroup = useMemo(() => calcGroup(mainIds, activeCurr, activePrev), [mainIds, activeCurr, activePrev, snapshots, restocks]);
-  const subGroup = useMemo(() => subIds.length > 0 ? calcGroup(subIds, activeCurr, activePrev) : null, [subIds, activeCurr, activePrev, snapshots, restocks]);
-
-  // Focus products: 450 黑咖啡 + 椰椰拿铁
-  const mainFocus = useMemo(() => FOCUS_IDS.map(pid => {
-    const p = getProductById(pid);
-    const d = calcProduct(pid, mainIds, activeCurr, activePrev);
-    return { name: p?.name || pid, ...d };
-  }), [mainIds, activeCurr, activePrev, snapshots, restocks]);
-  const subFocus = useMemo(() => subIds.length > 0 ? FOCUS_IDS.map(pid => {
-    const p = getProductById(pid);
-    const d = calcProduct(pid, subIds, activeCurr, activePrev);
-    return { name: p?.name || pid, ...d };
-  }) : null, [subIds, activeCurr, activePrev, snapshots, restocks]);
+  const mainGroup = useMemo(() => {
+    let stock = 0, prevStock = 0, restock = 0;
+    for (const id of mainIds) {
+      const d = calcDist(id, activeCurr, activePrev);
+      stock += d.stock; prevStock += d.prevStock; restock += d.restock;
+    }
+    const sales = Math.max(0, prevStock + restock - stock);
+    return { stock, prevStock, restock, sales };
+  }, [mainIds, activeCurr, activePrev, snapshots, restocks]);
 
   // ====== Other data ======
   const firstRestockDate = useMemo(() => {
@@ -124,17 +107,6 @@ export default function Dashboard() {
     URL.revokeObjectURL(url);
   };
 
-  const KpiCard = ({ label, value, sub, icon: Icon, color, bg }: any) => (
-    <div className="bg-white rounded-xl border border-gray-200 p-3.5">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs text-gray-500">{label}</span>
-        <div className={`p-1 rounded-lg ${bg}`}><Icon size={14} className={color} /></div>
-      </div>
-      <div className="text-lg font-bold text-gray-800">{value}</div>
-      <div className="text-[11px] text-gray-400">{sub}</div>
-    </div>
-  );
-
   return (
     <div className="p-3 md:p-6 space-y-3 md:space-y-4">
       {/* Header */}
@@ -157,81 +129,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ==================== TWO-COLUMN LAYOUT ==================== */}
-      <div className="flex flex-col lg:flex-row gap-4">
-
-        {/* ===== LEFT: 总看板 (fixed width) ===== */}
-        <div className="lg:w-[380px] flex-shrink-0 space-y-3">
-          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 sticky top-4">
-            <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-              <Target size={15} className="text-starbucks-500" />总看板
-            </h2>
-
-            {/* 总经销 row */}
-            {mainDist && (
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-starbucks-500" />
-                  <h3 className="text-xs font-bold text-gray-800">{mainDist.name}<span className="text-[10px] text-gray-400 font-normal ml-1">总经销</span></h3>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <KpiCard label="累计进货" value={mainGroup.restock.toLocaleString() + ' 件'} sub="从公司进货" icon={Package} color="text-blue-500" bg="bg-blue-50" />
-                  <KpiCard label="现有库存" value={mainGroup.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeCurr)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
-                  <KpiCard label="累计出货" value={mainGroup.sales.toLocaleString() + ' 件'} sub={activePrev ? `较上期` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
-                  <KpiCard label="库存价值" value={'¥' + (snapshots.filter(s => mainIds.includes(s.distributorId) && s.weekStart === activeCurr).reduce((a: number, s: any) => { const p = products.find(x => x.id === s.productId); return a + s.quantity * (p?.unitPrice || 0); }, 0) / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeCurr)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
-                </div>
-
-                {/* 450 + 椰椰 */}
-                <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                  {mainFocus.map(f => (
-                    <div key={f.name} className="bg-starbucks-50 rounded-xl border border-starbucks-100 p-2.5">
-                      <p className="text-[10px] font-bold text-starbucks-700 truncate">{f.name}</p>
-                      <div className="flex flex-col gap-0.5 mt-1 text-[10px]">
-                        <span className="text-gray-500">出货 <b className="text-gray-800">{f.sales.toLocaleString()}</b></span>
-                        <span className="text-gray-500">库存 <b className="text-gray-800">{f.stock.toLocaleString()}</b></span>
-                        <span className="text-gray-500">进货 <b className="text-gray-800">{f.restock.toLocaleString()}</b></span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 分销商 row */}
-            {subGroup && (
-              <div className="pt-3 border-t border-gray-100">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
-                  <h3 className="text-xs font-bold text-gray-700">分销商<span className="text-[10px] text-gray-400 font-normal ml-1">{subDists.length} 家</span></h3>
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <KpiCard label="分销商进货" value={subGroup.restock.toLocaleString() + ' 件'} sub="期间累计" icon={Package} color="text-blue-500" bg="bg-blue-50" />
-                  <KpiCard label="分销商库存" value={subGroup.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeCurr)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
-                  <KpiCard label="分销商出货" value={subGroup.sales.toLocaleString() + ' 件'} sub={activePrev ? `较上期` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
-                  <KpiCard label="库存价值" value={'¥' + (snapshots.filter(s => subIds.includes(s.distributorId) && s.weekStart === activeCurr).reduce((a: number, s: any) => { const p = products.find(x => x.id === s.productId); return a + s.quantity * (p?.unitPrice || 0); }, 0) / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeCurr)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
-                </div>
-                {/* 450 + 椰椰 for subs */}
-                {subFocus && (
-                  <div className="grid grid-cols-2 gap-1.5 mt-1.5">
-                    {subFocus.map(f => (
-                      <div key={f.name} className="bg-gray-50 rounded-xl border border-gray-100 p-2.5">
-                        <p className="text-[10px] font-bold text-gray-700 truncate">{f.name}</p>
-                        <div className="flex flex-col gap-0.5 mt-1 text-[10px]">
-                          <span className="text-gray-500">出货 <b className="text-gray-800">{f.sales.toLocaleString()}</b></span>
-                          <span className="text-gray-500">库存 <b className="text-gray-800">{f.stock.toLocaleString()}</b></span>
-                          <span className="text-gray-500">进货 <b className="text-gray-800">{f.restock.toLocaleString()}</b></span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ===== RIGHT: 盘点对比 ===== */}
-        <div className="flex-1 min-w-0 space-y-3 md:space-y-4">
+      {/* ===== 盘点对比 ===== */}
           <div className="bg-white rounded-xl border border-gray-200 p-4">
             <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
               <Clock size={15} className="text-starbucks-500" />盘点对比
@@ -381,8 +279,6 @@ export default function Dashboard() {
               });
             })()}
           </div>
-        </div>
-      </div>
     </div>
   );
 }

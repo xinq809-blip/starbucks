@@ -14,6 +14,7 @@ import Expense from './pages/Expense';
 import Fridge from './pages/Fridge';
 import Performance from './pages/Performance';
 import DailyPlan from './pages/MonthlyReport';
+import Overview from './pages/Overview';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/overview" element={<Overview />} />
             <Route path="/entry" element={<DataEntry />} />
             <Route path="/history" element={<History />} />
             <Route path="/products" element={<Products />} />

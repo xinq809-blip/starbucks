@@ -7,6 +7,7 @@ const navGroups = [
     label: '进销存',
     items: [
       { to: '/', icon: LayoutDashboard, label: '看板', end: true },
+      { to: '/overview', icon: Target, label: '总看板', end: false },
       { to: '/entry', icon: PencilLine, label: '录入', end: false },
       { to: '/history', icon: History, label: '对比', end: false },
       { to: '/products', icon: Package, label: '产品', end: false },
