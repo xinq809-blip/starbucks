@@ -111,6 +111,38 @@ export default function Dashboard() {
     return set.size;
   }, [restocks, activeDate]);
 
+  // ====== 总经销 vs 分销商 数据 ======
+  const mainDist = useMemo(() => distributors.find(d => d.role === 'main'), [distributors]);
+  const subDists = useMemo(() => distributors.filter(d => d.role === 'sub'), [distributors]);
+
+  const mainData = useMemo(() => {
+    if (!mainDist) return null;
+    const mId = mainDist.id;
+    const ids = subDists.length > 0 ? subDists.map(d => d.id) : distributors.filter(d => d.id !== mId).map(d => d.id);
+    const mRestock = (restocks || []).filter(r => ids.includes(r.distributorId) && r.date <= activeDate).reduce((s, r) => s + r.quantity, 0);
+    const mStock = snapshots.filter(s => ids.includes(s.distributorId) && s.weekStart <= activeDate).reduce((a, s) => a + s.quantity, 0);
+    const mPrevStock = prevDate ? snapshots.filter(s => ids.includes(s.distributorId) && s.weekStart === prevDate).reduce((a, s) => a + s.quantity, 0) : 0;
+    const mSales = Math.max(0, mPrevStock + mRestock - mStock);
+    const mValue = snapshots.filter(s => ids.includes(s.distributorId) && s.weekStart <= activeDate).reduce((a, s) => {
+      const p = products.find(x => x.id === s.productId);
+      return a + s.quantity * (p?.unitPrice || 0);
+    }, 0);
+    return { restock: mRestock, stock: mStock, sales: mSales, value: Math.round(mValue) };
+  }, [mainDist, subDists, distributors, restocks, snapshots, activeDate, prevDate, products]);
+
+  const subData = useMemo(() => {
+    if (subDists.length === 0) return null;
+    const ids = subDists.map(d => d.id);
+    const sRestock = (restocks || []).filter(r => ids.includes(r.distributorId) && r.date <= activeDate).reduce((a, r) => a + r.quantity, 0);
+    const sStock = snapshots.filter(s => ids.includes(s.distributorId) && s.weekStart <= activeDate).reduce((a, s) => a + s.quantity, 0);
+    const sPrevStock = prevDate ? snapshots.filter(s => ids.includes(s.distributorId) && s.weekStart === prevDate).reduce((a, s) => a + s.quantity, 0) : 0;
+    const sSales = Math.max(0, sPrevStock + sRestock - sStock);
+    const sValue = snapshots.filter(s => ids.includes(s.distributorId) && s.weekStart <= activeDate).reduce((a, s) => {
+      const p = products.find(x => x.id === s.productId);
+      return a + s.quantity * (p?.unitPrice || 0);
+    }, 0);
+    return { restock: sRestock, stock: sStock, sales: sSales, value: Math.round(sValue) };
+  }, [subDists, restocks, snapshots, activeDate, prevDate, products]);
 
   // Last week ranking for comparison
 
@@ -265,7 +297,40 @@ export default function Dashboard() {
 
       {(tab === 'early' || tab === 'late') ? (
         <>
-          {/* 周报 KPI: 6 cards */}
+          {/* ====== Row 1: 总经销商 KPI ====== */}
+          {mainDist && mainData && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-starbucks-500" />
+                <h3 className="text-sm font-bold text-gray-800">{mainDist.name}<span className="text-[11px] text-gray-400 font-normal ml-1">总经销商 · 分销商合计</span></h3>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+                <KpiCard label="从公司进货" value={mainData.restock.toLocaleString() + ' 件'} sub="期间累计进货量" icon={Package} color="text-blue-500" bg="bg-blue-50" />
+                <KpiCard label="现有库存" value={mainData.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeDate)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
+                <KpiCard label="本期销量" value={mainData.sales.toLocaleString() + ' 件'} sub={prevDate ? `较 ${getWeekLabel(prevDate)}` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
+                <KpiCard label="库存价值" value={'¥' + (mainData.value / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeDate)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
+              </div>
+            </div>
+          )}
+
+          {/* ====== Row 2: 分销商 KPI ====== */}
+          {subDists.length > 0 && subData && (
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+                <h3 className="text-sm font-bold text-gray-700">分销商<span className="text-[11px] text-gray-400 font-normal ml-1">{subDists.length} 家分销商合计</span></h3>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
+                <KpiCard label="分销商进货" value={subData.restock.toLocaleString() + ' 件'} sub="期间累计进货量" icon={Package} color="text-blue-500" bg="bg-blue-50" />
+                <KpiCard label="分销商库存" value={subData.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeDate)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
+                <KpiCard label="分销商销量" value={subData.sales.toLocaleString() + ' 件'} sub={prevDate ? `较 ${getWeekLabel(prevDate)}` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
+                <KpiCard label="库存价值" value={'¥' + (subData.value / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeDate)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
+              </div>
+            </div>
+          )}
+
+          {/* Fallback: no role hierarchy, show general KPI */}
+          {!mainDist && (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 md:gap-3">
             <KpiCard label="本期销量" value={totalSales.toLocaleString() + ' 件'} sub={`¥${Math.round(totalSalesValue).toLocaleString()}`} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
             <KpiCard label="总库存" value={totalStock.toLocaleString() + ' 件'} sub={getWeekLabel(activeDate)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
@@ -274,6 +339,7 @@ export default function Dashboard() {
             <KpiCard label="销量环比" value={(salesChange >= 0 ? '+' : '') + salesChange.toFixed(1) + '%'} sub="较上期" icon={salesChange >= 0 ? TrendingUp : TrendingDown} color={salesChange >= 0 ? 'text-emerald-500' : 'text-red-500'} bg={salesChange >= 0 ? 'bg-emerald-50' : 'bg-red-50'} />
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
+          )}
 
           {/* ====== 库存对比：上期 vs 本期 ====== */}
           {prevDate && (
