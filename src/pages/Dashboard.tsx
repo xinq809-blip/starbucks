@@ -260,6 +260,51 @@ export default function Dashboard() {
             <KpiCard label="动销率" value={`${activeProducts}/${products.length}`} sub={`${activeDistributors}/${distributors.length} 客户`} icon={Coffee} color="text-orange-500" bg="bg-orange-50" />
           </div>
 
+          {/* ====== 库存对比：上期 vs 本期 ====== */}
+          {prevDate && (
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                库存对比 · {getWeekLabel(prevDate)} → {getWeekLabel(activeDate)}
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-500">
+                      <th className="text-left py-2 font-medium">经销商</th>
+                      <th className="text-right py-2 font-medium">上期库存<br/><span className="text-[10px] font-normal text-gray-400">({getWeekLabel(prevDate)})</span></th>
+                      <th className="text-right py-2 font-medium">期间进货</th>
+                      <th className="text-right py-2 font-medium">本期库存<br/><span className="text-[10px] font-normal text-gray-400">({getWeekLabel(activeDate)})</span></th>
+                      <th className="text-right py-2 font-medium">本期销量</th>
+                      <th className="text-right py-2 font-medium">库存变化</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {distributors.map(d => {
+                      const dPrevStock = snapshots.filter(s => s.weekStart === prevDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
+                      const dCurrStock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
+                      const dRestock = (restocks || []).filter((r: any) => r.date > prevDate && r.date <= activeDate && r.distributorId === d.id).reduce((a: number, r: any) => a + r.quantity, 0);
+                      const dSales = Math.max(0, dPrevStock + dRestock - dCurrStock);
+                      const stockChange = dCurrStock - dPrevStock;
+                      if (dPrevStock === 0 && dCurrStock === 0 && dRestock === 0) return null;
+                      return (
+                        <tr key={d.id} className="hover:bg-gray-50/50">
+                          <td className="py-2.5 text-gray-800 font-medium">{d.name}</td>
+                          <td className="py-2.5 text-right text-gray-500">{dPrevStock.toLocaleString()}</td>
+                          <td className={`py-2.5 text-right font-medium ${dRestock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{dRestock > 0 ? '+' + dRestock.toLocaleString() : '—'}</td>
+                          <td className="py-2.5 text-right text-gray-700 font-medium">{dCurrStock.toLocaleString()}</td>
+                          <td className={`py-2.5 text-right font-bold ${dSales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{dSales > 0 ? dSales.toLocaleString() : '—'}</td>
+                          <td className={`py-2.5 text-right font-medium ${stockChange >= 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                            {stockChange > 0 ? '+' + stockChange.toLocaleString() : stockChange < 0 ? stockChange.toLocaleString() : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* Two-region split: 秦皇岛 | 唐山 */}
           {regionList.length > 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
