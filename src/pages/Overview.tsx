@@ -23,20 +23,22 @@ export default function Overview() {
 
   const prevDate = weeks.length > 1 ? weeks[weeks.length - 2] : null;
 
-  const totalRestock = (restocks || []).filter(r => r.distributorId === mainId).reduce((s, r) => s + r.quantity, 0);
+  // 本期进货：仅两次盘点之间的进货，非累计
+  const periodRestock = (restocks || []).filter(r => r.distributorId === mainId && r.date > (prevDate || '2000-01-01') && r.date <= activeDate).reduce((s, r) => s + r.quantity, 0);
   const curStock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === mainId).reduce((a, s) => a + s.quantity, 0);
   const prevStock = prevDate ? snapshots.filter(s => s.weekStart === prevDate && s.distributorId === mainId).reduce((a, s) => a + s.quantity, 0) : 0;
-  const totalSales = Math.max(0, prevStock + totalRestock - curStock);
+  // 本期出货 = 上次库存 + 期间进货 - 本次库存
+  const periodSales = Math.max(0, prevStock + periodRestock - curStock);
   const stockValue = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === mainId).reduce((a, s) => {
     const p = products.find(x => x.id === s.productId);
     return a + s.quantity * (p?.unitPrice || 0);
   }, 0);
 
-  // 重点产品（唐山辰日自身数据）
+  // 重点产品（本期数据，非累计）
   const focusData = useMemo(() => FOCUS_IDS.map(pid => {
     const p = getProductById(pid);
     const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === mainId && s.productId === pid).reduce((a, s) => a + s.quantity, 0);
-    const restock = (restocks || []).filter(r => r.distributorId === mainId && r.productId === pid).reduce((a, r) => a + r.quantity, 0);
+    const restock = (restocks || []).filter(r => r.distributorId === mainId && r.productId === pid && r.date > (prevDate || '2000-01-01') && r.date <= activeDate).reduce((a, r) => a + r.quantity, 0);
     const prevS = prevDate ? snapshots.filter(s => s.weekStart === prevDate && s.distributorId === mainId && s.productId === pid).reduce((a, s) => a + s.quantity, 0) : 0;
     const sales = Math.max(0, prevS + restock - stock);
     return { name: p?.name || pid, stock, restock, sales };
@@ -58,9 +60,9 @@ export default function Overview() {
           <>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
-                { label: '累计进货', value: totalRestock.toLocaleString() + ' 件', sub: '全部进货总量', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: '本期进货', value: periodRestock.toLocaleString() + ' 件', sub: prevDate ? `${getWeekLabel(prevDate)} → ${getWeekLabel(activeDate)}` : '', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
                 { label: '现有库存', value: curStock.toLocaleString() + ' 件', sub: getWeekLabel(activeDate), icon: Package, color: 'text-violet-600', bg: 'bg-violet-50' },
-                { label: '累计出货', value: totalSales.toLocaleString() + ' 件', sub: prevDate ? `上次盘点 ${getWeekLabel(prevDate)}` : '首次盘点', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '本期出货', value: periodSales.toLocaleString() + ' 件', sub: prevDate ? `上次库存 ${prevStock} + 进货 ${periodRestock} - 本次库存 ${curStock}` : '首次盘点', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                 { label: '库存价值', value: '¥' + (stockValue / 10000).toFixed(1) + '万', sub: getWeekLabel(activeDate), icon: DollarSign, color: 'text-amber-600', bg: 'bg-amber-50' },
               ].map(c => (
                 <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -87,7 +89,7 @@ export default function Overview() {
                   <div className="grid grid-cols-3 gap-4 text-center">
                     <div className="bg-blue-50 rounded-xl p-3">
                       <p className="text-xl font-bold text-blue-600">{f.restock.toLocaleString()}</p>
-                      <p className="text-[10px] text-blue-400 mt-0.5">累计进货</p>
+                      <p className="text-[10px] text-blue-400 mt-0.5">本期进货</p>
                     </div>
                     <div className="bg-violet-50 rounded-xl p-3">
                       <p className="text-xl font-bold text-violet-600">{f.stock.toLocaleString()}</p>
@@ -95,7 +97,7 @@ export default function Overview() {
                     </div>
                     <div className="bg-emerald-50 rounded-xl p-3">
                       <p className="text-xl font-bold text-emerald-600">{f.sales.toLocaleString()}</p>
-                      <p className="text-[10px] text-emerald-400 mt-0.5">累计出货</p>
+                      <p className="text-[10px] text-emerald-400 mt-0.5">本期出货</p>
                     </div>
                   </div>
                 </div>
