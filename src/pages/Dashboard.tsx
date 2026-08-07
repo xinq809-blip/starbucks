@@ -281,6 +281,20 @@ export default function Dashboard() {
               <h3 className="text-sm font-semibold text-gray-700 mb-3">
                 库存对比 · {getWeekLabel(prevDate)} → {getWeekLabel(activeDate)}
               </h3>
+              {(() => {
+                const main = distributors.find(d => d.role === 'main');
+                const subs = distributors.filter(d => d.role !== 'main' && d.role !== undefined);
+                // Compute aggregate for main distributor from all subs
+                let aggPrev = 0, aggCurr = 0, aggRestock = 0;
+                if (main) {
+                  for (const s of (subs.length > 0 ? subs : distributors.filter(d => d.id !== main.id))) {
+                    aggPrev += snapshots.filter(x => x.weekStart === prevDate && x.distributorId === s.id).reduce((a: number, x: any) => a + x.quantity, 0);
+                    aggCurr += snapshots.filter(x => x.weekStart === activeDate && x.distributorId === s.id).reduce((a: number, x: any) => a + x.quantity, 0);
+                    aggRestock += (restocks || []).filter((r: any) => r.date > prevDate && r.date <= activeDate && r.distributorId === s.id).reduce((a: number, r: any) => a + r.quantity, 0);
+                  }
+                }
+                const aggSales = Math.max(0, aggPrev + aggRestock - aggCurr);
+                return (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
@@ -294,16 +308,31 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {distributors.map(d => {
-                      const dPrevStock = snapshots.filter(s => s.weekStart === prevDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
-                      const dCurrStock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a: number, s: any) => a + s.quantity, 0);
-                      const dRestock = (restocks || []).filter((r: any) => r.date > prevDate && r.date <= activeDate && r.distributorId === d.id).reduce((a: number, r: any) => a + r.quantity, 0);
+                    {/* Main distributor aggregate row */}
+                    {main && subs.length > 0 && (aggPrev > 0 || aggCurr > 0 || aggRestock > 0) && (
+                      <tr className="bg-starbucks-50/50">
+                        <td className="py-2.5 text-gray-800 font-bold text-sm">{main.name}<span className="text-[10px] text-starbucks-500 ml-1.5 font-normal">总经销合计</span></td>
+                        <td className="py-2.5 text-right font-bold text-gray-700">{aggPrev.toLocaleString()}</td>
+                        <td className={`py-2.5 text-right font-bold ${aggRestock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{aggRestock > 0 ? '+' + aggRestock.toLocaleString() : '—'}</td>
+                        <td className="py-2.5 text-right font-bold text-gray-700">{aggCurr.toLocaleString()}</td>
+                        <td className={`py-2.5 text-right font-bold ${aggSales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{aggSales > 0 ? aggSales.toLocaleString() : '—'}</td>
+                        <td className={`py-2.5 text-right font-bold ${(aggCurr - aggPrev) >= 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                          {aggCurr - aggPrev > 0 ? '+' + (aggCurr - aggPrev).toLocaleString() : aggCurr - aggPrev < 0 ? (aggCurr - aggPrev).toLocaleString() : '—'}
+                        </td>
+                      </tr>
+                    )}
+                    {/* Sub distributors */}
+                    {(subs.length > 0 ? subs : distributors).map(d => {
+                      const did = d.id;
+                      const dPrevStock = snapshots.filter(s => s.weekStart === prevDate && s.distributorId === did).reduce((a: number, s: any) => a + s.quantity, 0);
+                      const dCurrStock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === did).reduce((a: number, s: any) => a + s.quantity, 0);
+                      const dRestock = (restocks || []).filter((r: any) => r.date > prevDate && r.date <= activeDate && r.distributorId === did).reduce((a: number, r: any) => a + r.quantity, 0);
                       const dSales = Math.max(0, dPrevStock + dRestock - dCurrStock);
                       const stockChange = dCurrStock - dPrevStock;
                       if (dPrevStock === 0 && dCurrStock === 0 && dRestock === 0) return null;
                       return (
-                        <tr key={d.id} className="hover:bg-gray-50/50">
-                          <td className="py-2.5 text-gray-800 font-medium">{d.name}</td>
+                        <tr key={did} className="hover:bg-gray-50/50">
+                          <td className="py-2.5 text-gray-700 pl-4">{d.name}{d.role === 'sub' ? <span className="text-[10px] text-gray-400 ml-1">分销商</span> : null}</td>
                           <td className="py-2.5 text-right text-gray-500">{dPrevStock.toLocaleString()}</td>
                           <td className={`py-2.5 text-right font-medium ${dRestock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{dRestock > 0 ? '+' + dRestock.toLocaleString() : '—'}</td>
                           <td className="py-2.5 text-right text-gray-700 font-medium">{dCurrStock.toLocaleString()}</td>
@@ -317,6 +346,8 @@ export default function Dashboard() {
                   </tbody>
                 </table>
               </div>
+                );
+              })()}
             </div>
           )}
 

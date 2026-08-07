@@ -22,6 +22,7 @@ export interface Distributor {
   address: string;
   lat: number;
   lng: number;
+  role?: 'main' | 'sub';
 }
 
 export interface WeeklySnapshot {
