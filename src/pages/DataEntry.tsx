@@ -74,17 +74,11 @@ export default function DataEntry() {
 
   // --- Helpers: aggregate group data from product-level ---
   const getGroupStock = (grp: typeof MAIN_GROUPS[0]) => {
-    let total = 0;
-    for (const pid of grp.ids) {
-      const v = stockData[`${pid}_${stockDist}`];
-      if (v >= 0) total += v;
-    }
-    return total;
+    const v = stockData[`${grp.ids[0]}_${stockDist}`];
+    return v >= 0 ? v : 0;
   };
   const getGroupPrevStock = (grp: typeof MAIN_GROUPS[0]) => {
-    let total = 0;
-    for (const pid of grp.ids) total += prevStock[`${pid}_${stockDist}`] || 0;
-    return total;
+    return prevStock[`${grp.ids[0]}_${stockDist}`] || 0;
   };
 
   // --- Stock handlers ---
@@ -93,8 +87,9 @@ export default function DataEntry() {
     setStockData(prev => ({ ...prev, [`${pid}_${stockDist}`]: isNaN(n) ? -1 : n }));
   };
   const setGroupStock = (grp: typeof MAIN_GROUPS[0], v: string) => {
-    const n = parseInt(v) || 0;
-    for (const pid of grp.ids) setStock(pid, v === '' ? '' : String(n));
+    // Store to first product only, clear others, so sum = user's number
+    setStock(grp.ids[0], v);
+    for (let i = 1; i < grp.ids.length; i++) setStock(grp.ids[i], '0');
   };
   const handleSaveStock = () => {
     const entries = Object.entries(stockData).filter(([, q]) => q >= 0).map(([k, q]) => { const [pid, did] = k.split('_'); return { productId: pid, distributorId: did, quantity: q }; });
@@ -232,22 +227,21 @@ export default function DataEntry() {
                         onKeyDown={e => { if (e.key === 'Enter') {
                           const n = parseInt(val || '') || 0;
                           if (n <= 0) return;
-                          for (const pid of grp.ids) {
-                            addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid, distributorId: restockDist, quantity: n, weekStart: restockDate });
-                            const key = `${pid}_${restockDist}`;
-                            setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + n } }));
-                          }
+                          // Store to first product only
+                          const pid0 = grp.ids[0];
+                          addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid0, distributorId: restockDist, quantity: n, weekStart: restockDate });
+                          const key0 = `${pid0}_${restockDist}`;
+                          setRestockInputs(prev => ({ ...prev, [key0]: { val: '', added: (prev[key0]?.added || 0) + n } }));
                         }}}
                         placeholder="数量" className="w-24 text-center border border-dashed border-amber-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50/20" />
                       {val && parseInt(val) > 0 && (
                         <button onClick={() => {
                           const n = parseInt(val || '') || 0;
                           if (n <= 0) return;
-                          for (const pid of grp.ids) {
-                            addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid, distributorId: restockDist, quantity: n, weekStart: restockDate });
-                            const key = `${pid}_${restockDist}`;
-                            setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + n } }));
-                          }
+                          const pid0 = grp.ids[0];
+                          addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid0, distributorId: restockDist, quantity: n, weekStart: restockDate });
+                          const key0 = `${pid0}_${restockDist}`;
+                          setRestockInputs(prev => ({ ...prev, [key0]: { val: '', added: (prev[key0]?.added || 0) + n } }));
                         }} className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold hover:bg-amber-600">+</button>
                       )}
                     </div>
