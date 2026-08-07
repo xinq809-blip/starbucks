@@ -81,10 +81,12 @@ export function getLatestWeek(snaps: WeeklySnapshot[]): string {
 
 export function getWeekLabel(weekStart: string): string {
   const d = new Date(weekStart + 'T00:00:00');
-  const end = new Date(d);
-  end.setDate(end.getDate() + 6);
-  const fmt = (dt: Date) => `${dt.getMonth() + 1}/${dt.getDate()}`;
-  return `${fmt(d)} - ${fmt(end)}`;
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+export function fmtDate(d: string): string {
+  const dt = new Date(d + 'T00:00:00');
+  return `${dt.getMonth() + 1}月${dt.getDate()}日`;
 }
 
 export function getProductById(id: string): Product | undefined {
