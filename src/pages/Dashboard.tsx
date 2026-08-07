@@ -157,232 +157,231 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ==================== SECTION 1: 总经销 vs 分销商 ==================== */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4">
-        <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-          <Target size={15} className="text-starbucks-500" />总经销 vs 分销商 出货对比
-        </h2>
+      {/* ==================== TWO-COLUMN LAYOUT ==================== */}
+      <div className="flex flex-col lg:flex-row gap-4">
 
-        {/* 总经销 row */}
-        {mainDist && (
-          <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-starbucks-500" />
-              <h3 className="text-xs font-bold text-gray-800">{mainDist.name}<span className="text-[10px] text-gray-400 font-normal ml-1">总经销 · 分销商合计</span></h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <KpiCard label="累计进货" value={mainGroup.restock.toLocaleString() + ' 件'} sub="从公司进货总量" icon={Package} color="text-blue-500" bg="bg-blue-50" />
-              <KpiCard label="现有库存" value={mainGroup.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeCurr)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
-              <KpiCard label="累计出货" value={mainGroup.sales.toLocaleString() + ' 件'} sub={activePrev ? `较 ${getWeekLabel(activePrev)}` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
-              <KpiCard label="库存价值" value={'¥' + (snapshots.filter(s => mainIds.includes(s.distributorId) && s.weekStart === activeCurr).reduce((a: number, s: any) => { const p = products.find(x => x.id === s.productId); return a + s.quantity * (p?.unitPrice || 0); }, 0) / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeCurr)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
-            </div>
+        {/* ===== LEFT: 总看板 (fixed width) ===== */}
+        <div className="lg:w-[380px] flex-shrink-0 space-y-3">
+          <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-4 sticky top-4">
+            <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+              <Target size={15} className="text-starbucks-500" />总看板
+            </h2>
 
-            {/* 450 黑咖啡 + 椰椰拿铁 */}
-            <div className="grid grid-cols-2 gap-2 mt-2">
-              {mainFocus.map(f => (
-                <div key={f.name} className="bg-starbucks-50/50 rounded-xl border border-starbucks-100 p-3">
-                  <p className="text-[11px] font-bold text-starbucks-700 mb-2">{f.name}</p>
-                  <div className="flex items-center gap-3 text-[11px]">
-                    <span className="text-gray-500">出货 <b className="text-gray-800">{f.sales.toLocaleString()}</b> 件</span>
-                    <span className="text-gray-400">|</span>
-                    <span className="text-gray-500">库存 <b className="text-gray-800">{f.stock.toLocaleString()}</b> 件</span>
-                    <span className="text-gray-400">|</span>
-                    <span className="text-gray-500">进货 <b className="text-gray-800">{f.restock.toLocaleString()}</b> 件</span>
-                  </div>
+            {/* 总经销 row */}
+            {mainDist && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-starbucks-500" />
+                  <h3 className="text-xs font-bold text-gray-800">{mainDist.name}<span className="text-[10px] text-gray-400 font-normal ml-1">总经销</span></h3>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
+                <div className="grid grid-cols-2 gap-1.5">
+                  <KpiCard label="累计进货" value={mainGroup.restock.toLocaleString() + ' 件'} sub="从公司进货" icon={Package} color="text-blue-500" bg="bg-blue-50" />
+                  <KpiCard label="现有库存" value={mainGroup.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeCurr)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
+                  <KpiCard label="累计出货" value={mainGroup.sales.toLocaleString() + ' 件'} sub={activePrev ? `较上期` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
+                  <KpiCard label="库存价值" value={'¥' + (snapshots.filter(s => mainIds.includes(s.distributorId) && s.weekStart === activeCurr).reduce((a: number, s: any) => { const p = products.find(x => x.id === s.productId); return a + s.quantity * (p?.unitPrice || 0); }, 0) / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeCurr)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
+                </div>
 
-        {/* 分销商 row */}
-        {subGroup && (
-          <div className="pt-3 border-t border-gray-100">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
-              <h3 className="text-xs font-bold text-gray-700">分销商<span className="text-[10px] text-gray-400 font-normal ml-1">{subDists.length} 家</span></h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              <KpiCard label="分销商进货" value={subGroup.restock.toLocaleString() + ' 件'} sub="期间累计" icon={Package} color="text-blue-500" bg="bg-blue-50" />
-              <KpiCard label="分销商库存" value={subGroup.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeCurr)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
-              <KpiCard label="分销商出货" value={subGroup.sales.toLocaleString() + ' 件'} sub={activePrev ? `较 ${getWeekLabel(activePrev)}` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
-              <KpiCard label="库存价值" value={'¥' + (snapshots.filter(s => subIds.includes(s.distributorId) && s.weekStart === activeCurr).reduce((a: number, s: any) => { const p = products.find(x => x.id === s.productId); return a + s.quantity * (p?.unitPrice || 0); }, 0) / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeCurr)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
-            </div>
-
-            {/* Focus products for subs */}
-            {subFocus && (
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                {subFocus.map(f => (
-                  <div key={f.name} className="bg-gray-50 rounded-xl border border-gray-100 p-3">
-                    <p className="text-[11px] font-bold text-gray-700 mb-2">{f.name}</p>
-                    <div className="flex items-center gap-3 text-[11px]">
-                      <span className="text-gray-500">出货 <b className="text-gray-800">{f.sales.toLocaleString()}</b> 件</span>
-                      <span className="text-gray-400">|</span>
-                      <span className="text-gray-500">库存 <b className="text-gray-800">{f.stock.toLocaleString()}</b> 件</span>
-                      <span className="text-gray-400">|</span>
-                      <span className="text-gray-500">进货 <b className="text-gray-800">{f.restock.toLocaleString()}</b> 件</span>
+                {/* 450 + 椰椰 */}
+                <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                  {mainFocus.map(f => (
+                    <div key={f.name} className="bg-starbucks-50 rounded-xl border border-starbucks-100 p-2.5">
+                      <p className="text-[10px] font-bold text-starbucks-700 truncate">{f.name}</p>
+                      <div className="flex flex-col gap-0.5 mt-1 text-[10px]">
+                        <span className="text-gray-500">出货 <b className="text-gray-800">{f.sales.toLocaleString()}</b></span>
+                        <span className="text-gray-500">库存 <b className="text-gray-800">{f.stock.toLocaleString()}</b></span>
+                        <span className="text-gray-500">进货 <b className="text-gray-800">{f.restock.toLocaleString()}</b></span>
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 分销商 row */}
+            {subGroup && (
+              <div className="pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-gray-400" />
+                  <h3 className="text-xs font-bold text-gray-700">分销商<span className="text-[10px] text-gray-400 font-normal ml-1">{subDists.length} 家</span></h3>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  <KpiCard label="分销商进货" value={subGroup.restock.toLocaleString() + ' 件'} sub="期间累计" icon={Package} color="text-blue-500" bg="bg-blue-50" />
+                  <KpiCard label="分销商库存" value={subGroup.stock.toLocaleString() + ' 件'} sub={getWeekLabel(activeCurr)} icon={Package} color="text-violet-500" bg="bg-violet-50" />
+                  <KpiCard label="分销商出货" value={subGroup.sales.toLocaleString() + ' 件'} sub={activePrev ? `较上期` : ''} icon={TrendingUp} color="text-emerald-500" bg="bg-emerald-50" />
+                  <KpiCard label="库存价值" value={'¥' + (snapshots.filter(s => subIds.includes(s.distributorId) && s.weekStart === activeCurr).reduce((a: number, s: any) => { const p = products.find(x => x.id === s.productId); return a + s.quantity * (p?.unitPrice || 0); }, 0) / 10000).toFixed(1) + '万'} sub={getWeekLabel(activeCurr)} icon={DollarSign} color="text-amber-500" bg="bg-amber-50" />
+                </div>
+                {/* 450 + 椰椰 for subs */}
+                {subFocus && (
+                  <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+                    {subFocus.map(f => (
+                      <div key={f.name} className="bg-gray-50 rounded-xl border border-gray-100 p-2.5">
+                        <p className="text-[10px] font-bold text-gray-700 truncate">{f.name}</p>
+                        <div className="flex flex-col gap-0.5 mt-1 text-[10px]">
+                          <span className="text-gray-500">出货 <b className="text-gray-800">{f.sales.toLocaleString()}</b></span>
+                          <span className="text-gray-500">库存 <b className="text-gray-800">{f.stock.toLocaleString()}</b></span>
+                          <span className="text-gray-500">进货 <b className="text-gray-800">{f.restock.toLocaleString()}</b></span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* ==================== SECTION 2: 盘点对比 ==================== */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
-          <Clock size={15} className="text-starbucks-500" />盘点对比
-        </h2>
-
-        {/* Pair selector tabs */}
-        {pairs.length > 0 ? (
-          <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
-            {pairs.map((p, i) => (
-              <button key={i} onClick={() => setPairIdx(i)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
-                  i === pairIdx ? 'bg-starbucks-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
-                }`}>
-                {p.label}<span className="ml-1 opacity-70">{getWeekLabel(p.prev)} → {getWeekLabel(p.curr)}</span>
-              </button>
-            ))}
-          </div>
-        ) : weeks.length === 1 ? (
-          <div className="text-xs text-gray-400 mb-4">仅有1次盘点（{getWeekLabel(weeks[0])}），录入第2次盘点后会显示对比</div>
-        ) : (
-          <div className="text-xs text-gray-400 mb-4">暂无盘点数据</div>
-        )}
-
-        {/* Comparison table */}
-        {activePrev && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 text-gray-500">
-                  <th className="text-left py-2 font-medium">经销商</th>
-                  <th className="text-right py-2 font-medium">盘点前库存<br/><span className="text-[10px] font-normal text-gray-400">({getWeekLabel(activePrev)})</span></th>
-                  <th className="text-right py-2 font-medium">期间进货</th>
-                  <th className="text-right py-2 font-medium">盘点库存<br/><span className="text-[10px] font-normal text-gray-400">({getWeekLabel(activeCurr)})</span></th>
-                  <th className="text-right py-2 font-medium">期间出货</th>
-                  <th className="text-right py-2 font-medium">库存变化</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {/* Main aggregate row */}
-                {mainDist && subDists.length > 0 && (
-                  <tr className="bg-starbucks-50/50">
-                    <td className="py-2.5 font-bold text-sm text-gray-800">{mainDist.name}<span className="text-[10px] text-starbucks-500 ml-1 font-normal">合计</span></td>
-                    <td className="py-2.5 text-right font-bold text-gray-700">{mainGroup.prevStock.toLocaleString()}</td>
-                    <td className={`py-2.5 text-right font-bold ${mainGroup.restock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{mainGroup.restock > 0 ? '+' + mainGroup.restock.toLocaleString() : '—'}</td>
-                    <td className="py-2.5 text-right font-bold text-gray-700">{mainGroup.stock.toLocaleString()}</td>
-                    <td className={`py-2.5 text-right font-bold ${mainGroup.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{mainGroup.sales > 0 ? mainGroup.sales.toLocaleString() : '—'}</td>
-                    <td className={`py-2.5 text-right font-bold ${mainGroup.stock - mainGroup.prevStock >= 0 ? 'text-amber-600' : 'text-blue-600'}`}>
-                      {mainGroup.stock - mainGroup.prevStock > 0 ? '+' + (mainGroup.stock - mainGroup.prevStock).toLocaleString() : mainGroup.stock - mainGroup.prevStock < 0 ? (mainGroup.stock - mainGroup.prevStock).toLocaleString() : '—'}
-                    </td>
-                  </tr>
-                )}
-                {/* Sub rows */}
-                {(subDists.length > 0 ? subDists : distributors).map(d => {
-                  const dd = calcDist(d.id, activeCurr, activePrev);
-                  if (dd.prevStock === 0 && dd.stock === 0 && dd.restock === 0) return null;
-                  return (
-                    <tr key={d.id} className="hover:bg-gray-50/50">
-                      <td className="py-2.5 text-gray-700 pl-4">{d.name}{d.role === 'sub' && <span className="text-[10px] text-gray-400 ml-1">分销商</span>}</td>
-                      <td className="py-2.5 text-right text-gray-500">{dd.prevStock.toLocaleString()}</td>
-                      <td className={`py-2.5 text-right font-medium ${dd.restock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{dd.restock > 0 ? '+' + dd.restock.toLocaleString() : '—'}</td>
-                      <td className="py-2.5 text-right text-gray-700 font-medium">{dd.stock.toLocaleString()}</td>
-                      <td className={`py-2.5 text-right font-bold ${dd.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{dd.sales > 0 ? dd.sales.toLocaleString() : '—'}</td>
-                      <td className={`py-2.5 text-right font-medium ${dd.stock - dd.prevStock >= 0 ? 'text-amber-600' : 'text-blue-600'}`}>
-                        {dd.stock - dd.prevStock > 0 ? '+' + (dd.stock - dd.prevStock).toLocaleString() : dd.stock - dd.prevStock < 0 ? (dd.stock - dd.prevStock).toLocaleString() : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* ==================== 单品分析 ==================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 md:gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-700">单品分析</h3>
-            <select value={selectedDist} onChange={(e) => setSelectedDist(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white">
-              {distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-          <div className="max-h-[300px] overflow-y-auto">
-            <table className="w-full text-xs">
-              <thead><tr className="border-b border-gray-100 text-gray-400"><th className="text-left py-1 font-medium">产品</th><th className="text-right py-1 font-medium">盘点前</th><th className="text-right py-1 font-medium">盘点时</th><th className="text-right py-1 font-medium">出货</th></tr></thead>
-              <tbody className="divide-y divide-gray-50">
-                {products.map(p => {
-                  if (!activePrev) return null;
-                  const d = calcProduct(p.id, [selectedDist], activeCurr, activePrev);
-                  if (d.prevStock === 0 && d.stock === 0 && d.restock === 0) return null;
-                  return (
-                    <tr key={p.id} className="hover:bg-gray-50/50">
-                      <td className="py-1 text-gray-700 truncate max-w-[160px]">{p.name}</td>
-                      <td className="py-1 text-right text-gray-500">{d.prevStock}</td>
-                      <td className="py-1 text-right text-gray-700 font-medium">{d.stock}</td>
-                      <td className={`py-1 text-right font-bold ${d.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{d.sales > 0 ? d.sales : '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
         </div>
 
-        {/* Category pie */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">品类销售结构</h3>
-          {(() => {
-            const cats: Record<string, number> = {};
-            if (activePrev) {
-              for (const p of products) {
-                const d = calcProduct(p.id, distributors.map(d => d.id), activeCurr, activePrev);
-                if (d.sales > 0) {
-                  const cat = getCategoryLabel(p.category);
-                  cats[cat] = (cats[cat] || 0) + d.sales;
-                }
-              }
-            }
-            const data = Object.entries(cats).map(([k, v]) => ({ name: k, value: v }));
-            if (data.length === 0) return <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">暂无数据</div>;
-            return (
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
-                    {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
-                </PieChart>
-              </ResponsiveContainer>
-            );
-          })()}
-        </div>
-      </div>
+        {/* ===== RIGHT: 盘点对比 ===== */}
+        <div className="flex-1 min-w-0 space-y-3 md:space-y-4">
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h2 className="text-sm font-bold text-gray-800 flex items-center gap-2 mb-3">
+              <Clock size={15} className="text-starbucks-500" />盘点对比
+            </h2>
 
-      {/* Slow moving */}
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><AlertCircle size={14} className="text-amber-500" />滞销预警</h3>
-        {(() => {
-          const slow = getSlowMoving(snapshots, restocks, distributors);
-          if (slow.length === 0) return <div className="text-xs text-gray-400 text-center py-4">所有产品均有动销</div>;
-          return slow.slice(0, 8).map((sm, i) => {
-            const p = getProductById(sm.productId);
-            const d = getDistributorById(sm.distributorId);
-            return (
-              <div key={i} className="flex items-center justify-between p-2 rounded-lg border border-amber-100 bg-amber-50/50 mb-1.5 last:mb-0">
-                <div><p className="text-xs font-medium text-gray-800">{p?.name}</p><p className="text-[10px] text-gray-400">{d?.name}</p></div>
-                <span className="text-xs font-bold text-amber-600">{sm.weeksStale} 周未动销</span>
+            {/* Pair selector */}
+            {pairs.length > 0 ? (
+              <div className="flex items-center gap-1.5 mb-4 overflow-x-auto pb-1">
+                {pairs.map((p, i) => (
+                  <button key={i} onClick={() => setPairIdx(i)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
+                      i === pairIdx ? 'bg-starbucks-500 text-white shadow-sm' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                    }`}>
+                    {p.label}<span className="ml-1 opacity-70">{getWeekLabel(p.prev)} → {getWeekLabel(p.curr)}</span>
+                  </button>
+                ))}
               </div>
-            );
-          });
-        })()}
+            ) : weeks.length === 1 ? (
+              <div className="text-xs text-gray-400 mb-4">仅有1次盘点（{getWeekLabel(weeks[0])}），录入第2次盘点后会显示对比</div>
+            ) : (
+              <div className="text-xs text-gray-400 mb-4">暂无盘点数据</div>
+            )}
+
+            {/* Comparison table */}
+            {activePrev && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-500">
+                      <th className="text-left py-2 font-medium">经销商</th>
+                      <th className="text-right py-2 font-medium">盘点前<br/><span className="text-[10px] font-normal text-gray-400">({getWeekLabel(activePrev)})</span></th>
+                      <th className="text-right py-2 font-medium">期间进货</th>
+                      <th className="text-right py-2 font-medium">盘点时<br/><span className="text-[10px] font-normal text-gray-400">({getWeekLabel(activeCurr)})</span></th>
+                      <th className="text-right py-2 font-medium">期间出货</th>
+                      <th className="text-right py-2 font-medium">变化</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {mainDist && subDists.length > 0 && (
+                      <tr className="bg-starbucks-50/50">
+                        <td className="py-2.5 font-bold text-sm text-gray-800">{mainDist.name}<span className="text-[10px] text-starbucks-500 ml-1 font-normal">合计</span></td>
+                        <td className="py-2.5 text-right font-bold text-gray-700">{mainGroup.prevStock.toLocaleString()}</td>
+                        <td className={`py-2.5 text-right font-bold ${mainGroup.restock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{mainGroup.restock > 0 ? '+' + mainGroup.restock.toLocaleString() : '—'}</td>
+                        <td className="py-2.5 text-right font-bold text-gray-700">{mainGroup.stock.toLocaleString()}</td>
+                        <td className={`py-2.5 text-right font-bold ${mainGroup.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{mainGroup.sales > 0 ? mainGroup.sales.toLocaleString() : '—'}</td>
+                        <td className={`py-2.5 text-right font-bold ${mainGroup.stock - mainGroup.prevStock >= 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                          {mainGroup.stock - mainGroup.prevStock > 0 ? '+' + (mainGroup.stock - mainGroup.prevStock).toLocaleString() : mainGroup.stock - mainGroup.prevStock < 0 ? (mainGroup.stock - mainGroup.prevStock).toLocaleString() : '—'}
+                        </td>
+                      </tr>
+                    )}
+                    {(subDists.length > 0 ? subDists : distributors).map(d => {
+                      const dd = calcDist(d.id, activeCurr, activePrev);
+                      if (dd.prevStock === 0 && dd.stock === 0 && dd.restock === 0) return null;
+                      return (
+                        <tr key={d.id} className="hover:bg-gray-50/50">
+                          <td className="py-2.5 text-gray-700 pl-4">{d.name}{d.role === 'sub' && <span className="text-[10px] text-gray-400 ml-1">分销商</span>}</td>
+                          <td className="py-2.5 text-right text-gray-500">{dd.prevStock.toLocaleString()}</td>
+                          <td className={`py-2.5 text-right font-medium ${dd.restock > 0 ? 'text-blue-600' : 'text-gray-400'}`}>{dd.restock > 0 ? '+' + dd.restock.toLocaleString() : '—'}</td>
+                          <td className="py-2.5 text-right text-gray-700 font-medium">{dd.stock.toLocaleString()}</td>
+                          <td className={`py-2.5 text-right font-bold ${dd.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{dd.sales > 0 ? dd.sales.toLocaleString() : '—'}</td>
+                          <td className={`py-2.5 text-right font-medium ${dd.stock - dd.prevStock >= 0 ? 'text-amber-600' : 'text-blue-600'}`}>
+                            {dd.stock - dd.prevStock > 0 ? '+' + (dd.stock - dd.prevStock).toLocaleString() : dd.stock - dd.prevStock < 0 ? (dd.stock - dd.prevStock).toLocaleString() : '—'}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* 单品分析 + 品类饼图 */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-700">单品分析</h3>
+                <select value={selectedDist} onChange={(e) => setSelectedDist(e.target.value)} className="border border-gray-200 rounded-lg px-2 py-1 text-xs bg-white">
+                  {distributors.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                <table className="w-full text-xs">
+                  <thead><tr className="border-b border-gray-100 text-gray-400"><th className="text-left py-1 font-medium">产品</th><th className="text-right py-1 font-medium">盘点前</th><th className="text-right py-1 font-medium">盘点时</th><th className="text-right py-1 font-medium">出货</th></tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {products.map(p => {
+                      if (!activePrev) return null;
+                      const d = calcProduct(p.id, [selectedDist], activeCurr, activePrev);
+                      if (d.prevStock === 0 && d.stock === 0 && d.restock === 0) return null;
+                      return (
+                        <tr key={p.id} className="hover:bg-gray-50/50">
+                          <td className="py-1 text-gray-700 truncate max-w-[160px]">{p.name}</td>
+                          <td className="py-1 text-right text-gray-500">{d.prevStock}</td>
+                          <td className="py-1 text-right text-gray-700 font-medium">{d.stock}</td>
+                          <td className={`py-1 text-right font-bold ${d.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{d.sales > 0 ? d.sales : '—'}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">品类结构</h3>
+              {(() => {
+                const cats: Record<string, number> = {};
+                if (activePrev) {
+                  for (const p of products) {
+                    const d = calcProduct(p.id, distributors.map(d => d.id), activeCurr, activePrev);
+                    if (d.sales > 0) {
+                      const cat = getCategoryLabel(p.category);
+                      cats[cat] = (cats[cat] || 0) + d.sales;
+                    }
+                  }
+                }
+                const data = Object.entries(cats).map(([k, v]) => ({ name: k, value: v }));
+                if (data.length === 0) return <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">暂无数据</div>;
+                return (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <PieChart>
+                      <Pie data={data} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                        {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                );
+              })()}
+            </div>
+          </div>
+
+          {/* 滞销预警 */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2"><AlertCircle size={14} className="text-amber-500" />滞销预警</h3>
+            {(() => {
+              const slow = getSlowMoving(snapshots, restocks, distributors);
+              if (slow.length === 0) return <div className="text-xs text-gray-400 text-center py-4">所有产品均有动销</div>;
+              return slow.slice(0, 8).map((sm, i) => {
+                const p = getProductById(sm.productId);
+                const d = getDistributorById(sm.distributorId);
+                return (
+                  <div key={i} className="flex items-center justify-between p-2 rounded-lg border border-amber-100 bg-amber-50/50 mb-1.5 last:mb-0">
+                    <div><p className="text-xs font-medium text-gray-800">{p?.name}</p><p className="text-[10px] text-gray-400">{d?.name}</p></div>
+                    <span className="text-xs font-bold text-amber-600">{sm.weeksStale} 周未动销</span>
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
       </div>
     </div>
   );
