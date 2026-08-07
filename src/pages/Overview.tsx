@@ -18,33 +18,29 @@ export default function Overview() {
     return m || distributors.find(d => d.name.includes('辰日')) || distributors.find(d => d.region === '唐山') || distributors[0] || null;
   }, [distributors]);
 
-  // 所有分销商ID = 除了总经销之外的所有经销商
-  const subIds = useMemo(() => {
-    if (!mainDist) return distributors.map(d => d.id);
-    const s = distributors.filter(d => d.role === 'sub');
-    return (s.length > 0 ? s : distributors.filter(d => d.id !== mainDist.id)).map(d => d.id);
-  }, [distributors, mainDist]);
+  // 总经销自身ID — 数据来自录入时选择唐山辰日
+  const mainId = mainDist?.id || '';
 
-  // 总经销数据 = 所有分销商合计
-  const totalRestock = (restocks || []).filter(r => subIds.includes(r.distributorId)).reduce((s, r) => s + r.quantity, 0);
-  const curStock = snapshots.filter(s => s.weekStart === activeDate && subIds.includes(s.distributorId)).reduce((a, s) => a + s.quantity, 0);
   const prevDate = weeks.length > 1 ? weeks[weeks.length - 2] : null;
-  const prevStock = prevDate ? snapshots.filter(s => s.weekStart === prevDate && subIds.includes(s.distributorId)).reduce((a, s) => a + s.quantity, 0) : 0;
+
+  const totalRestock = (restocks || []).filter(r => r.distributorId === mainId).reduce((s, r) => s + r.quantity, 0);
+  const curStock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === mainId).reduce((a, s) => a + s.quantity, 0);
+  const prevStock = prevDate ? snapshots.filter(s => s.weekStart === prevDate && s.distributorId === mainId).reduce((a, s) => a + s.quantity, 0) : 0;
   const totalSales = Math.max(0, prevStock + totalRestock - curStock);
-  const stockValue = snapshots.filter(s => s.weekStart === activeDate && subIds.includes(s.distributorId)).reduce((a, s) => {
+  const stockValue = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === mainId).reduce((a, s) => {
     const p = products.find(x => x.id === s.productId);
     return a + s.quantity * (p?.unitPrice || 0);
   }, 0);
 
-  // 重点产品
+  // 重点产品（唐山辰日自身数据）
   const focusData = useMemo(() => FOCUS_IDS.map(pid => {
     const p = getProductById(pid);
-    const stock = snapshots.filter(s => s.weekStart === activeDate && subIds.includes(s.distributorId) && s.productId === pid).reduce((a, s) => a + s.quantity, 0);
-    const restock = (restocks || []).filter(r => subIds.includes(r.distributorId) && r.productId === pid).reduce((a, r) => a + r.quantity, 0);
-    const prevS = prevDate ? snapshots.filter(s => s.weekStart === prevDate && subIds.includes(s.distributorId) && s.productId === pid).reduce((a, s) => a + s.quantity, 0) : 0;
+    const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === mainId && s.productId === pid).reduce((a, s) => a + s.quantity, 0);
+    const restock = (restocks || []).filter(r => r.distributorId === mainId && r.productId === pid).reduce((a, r) => a + r.quantity, 0);
+    const prevS = prevDate ? snapshots.filter(s => s.weekStart === prevDate && s.distributorId === mainId && s.productId === pid).reduce((a, s) => a + s.quantity, 0) : 0;
     const sales = Math.max(0, prevS + restock - stock);
     return { name: p?.name || pid, stock, restock, sales };
-  }), [subIds, activeDate, prevDate, snapshots, restocks]);
+  }), [mainId, activeDate, prevDate, snapshots, restocks]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -53,7 +49,7 @@ export default function Overview() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">总看板</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {mainDist?.name} 总经销商 · {subIds.length} 家分销商合计 · {getWeekLabel(activeDate)}
+            {mainDist?.name} 总经销商 · 最新盘点 {getWeekLabel(activeDate)}
           </p>
         </div>
 
