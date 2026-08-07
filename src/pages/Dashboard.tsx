@@ -35,20 +35,35 @@ export default function Dashboard() {
   const regionList = useMemo(() => [...new Set(distributors.map(d => d.region || '其他'))].filter(Boolean), [distributors]);
 
   // Pick relevant date based on period tab
+  // User records twice/month: around 1st (上旬) and 15th (下旬)
+  // A week may start in previous month but contain days of current month
   const activeDate = useMemo(() => {
     if (weeks.length === 0) return getCurrentWeekStart();
-    const month = currentMonth;
-    const earlyDates = weeks.filter(w => w.startsWith(month) && parseInt(w.slice(8,10)) <= 10);
-    const lateDates = weeks.filter(w => w.startsWith(month) && parseInt(w.slice(8,10)) > 10);
-    if (tab === 'early' && earlyDates.length > 0) return earlyDates[earlyDates.length - 1];
-    if (tab === 'late' && lateDates.length > 0) return lateDates[lateDates.length - 1];
-    return weeks[weeks.length - 1];
+    // Find weeks that overlap with current month (not just start in it)
+    const overlap = (w: string, m: string) => {
+      const ws = new Date(w + 'T00:00:00');
+      const we = new Date(ws); we.setDate(we.getDate() + 6);
+      const ms = new Date(m + '-01T00:00:00');
+      const me = new Date(ms); me.setMonth(me.getMonth() + 1); me.setDate(0);
+      return ws <= me && we >= ms;
+    };
+    const monthWeeks = weeks.filter(w => overlap(w, currentMonth));
+    const pool = monthWeeks.length > 0 ? monthWeeks : weeks;
+    // 上旬: latest recording (around 1st) | 下旬: previous recording (around 15th)
+    if (tab === 'early') return pool[pool.length - 1];
+    if (tab === 'late' && pool.length > 1) return pool[pool.length - 2];
+    if (tab === 'late') return pool[pool.length - 1];
+    return pool[pool.length - 1];
   }, [tab, weeks, currentMonth]);
 
   const prevDate = useMemo(() => {
+    // For comparison: prev recording (usually the 15号 data)
     const idx = weeks.indexOf(activeDate);
+    // If viewing 下旬, compare with the week before it
+    if (tab === 'late') return idx > 0 ? weeks[idx - 1] : null;
+    // If viewing 上旬, compare with the previous recording (usually 下旬/15号)
     return idx > 0 ? weeks[idx - 1] : null;
-  }, [activeDate, weeks]);
+  }, [activeDate, weeks, tab]);
   const [selectedDist, setSelectedDist] = useState(distributors[0]?.id ?? '');
   const [targetInput, setTargetInput] = useState('');
   const [editingTarget, setEditingTarget] = useState(false);

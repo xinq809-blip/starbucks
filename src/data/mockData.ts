@@ -159,6 +159,11 @@ export function getAvailableMonths(snaps: WeeklySnapshot[]): string[] {
   const months = new Set<string>();
   for (const s of snaps) {
     months.add(s.weekStart.slice(0, 7));
+    // Also add the month that this week ends in (for cross-month weeks)
+    const we = new Date(s.weekStart + 'T00:00:00');
+    we.setDate(we.getDate() + 6);
+    const endMonth = we.toISOString().slice(0, 7);
+    if (endMonth !== s.weekStart.slice(0, 7)) months.add(endMonth);
   }
   return [...months].sort();
 }
