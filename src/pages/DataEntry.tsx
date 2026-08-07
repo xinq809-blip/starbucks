@@ -94,18 +94,6 @@ export default function DataEntry() {
     for (const pid of grp.ids) total += prevStock[`${pid}_${stockDist}`] || 0;
     return total;
   };
-  const getGroupRestockAdded = (grp: typeof MAIN_GROUPS[0]) => {
-    let total = 0;
-    for (const pid of grp.ids) total += restockInputs[`${pid}_${restockDist}`]?.added || 0;
-    return total;
-  };
-  const getGroupRestockVal = (grp: typeof MAIN_GROUPS[0]) => {
-    for (const pid of grp.ids) {
-      const v = restockInputs[`${pid}_${restockDist}`]?.val;
-      if (v) return v;
-    }
-    return '';
-  };
 
   // --- Stock handlers ---
   const setStock = (pid: string, v: string) => {
@@ -134,18 +122,6 @@ export default function DataEntry() {
   };
 
   // --- Restock handlers ---
-  const addOneGroup = (grp: typeof MAIN_GROUPS[0]) => {
-    const val = getGroupRestockVal(grp);
-    const n = parseInt(val) || 0;
-    if (n <= 0) return;
-    const dist = splitQty(n, grp.ids);
-    for (const pid of grp.ids) {
-      const q = dist[pid];
-      addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: pid, distributorId: restockDist, quantity: q, weekStart: restockDate });
-      const key = `${pid}_${restockDist}`;
-      setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + q } }));
-    }
-  };
   const removeOne = (rid: string) => {
     const r = restocks.find(x => x.id === rid);
     if (r) {
@@ -244,28 +220,40 @@ export default function DataEntry() {
 
           <DistTabs active={restockDist} onChange={setRestockDist} />
 
-          {/* All distributors: grouped restock */}
+          {/* Individual product restock entry - exact numbers, no averaging */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="divide-y divide-gray-50 max-h-[50vh] overflow-y-auto">
-              {MAIN_GROUPS.map(grp => {
-                const added = getGroupRestockAdded(grp);
-                const val = getGroupRestockVal(grp);
+              {products.map(p => {
+                const key = `${p.id}_${restockDist}`;
+                const added = restockInputs[key]?.added ?? 0;
+                const val = restockInputs[key]?.val ?? '';
                 return (
-                  <div key={grp.key} className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50/30">
+                  <div key={p.id} className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/30">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-gray-800">{grp.label}</p>
-                      <p className="text-[10px] text-gray-400">{grp.ids.length}款 · ¥{grp.price}/件</p>
+                      <p className="text-sm font-medium text-gray-800 truncate">{p.name}</p>
+                      <p className="text-[10px] text-gray-400">{p.spec} · ¥{p.unitPrice}</p>
                     </div>
                     {added > 0 && <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">已录 +{added}</span>}
                     <div className="flex items-center gap-1">
                       <input type="number" min="0" value={val} onChange={e => {
-                        const key0 = `${grp.ids[0]}_${restockDist}`;
-                        setRestockInputs(prev => ({ ...prev, [key0]: { ...prev[key0], val: e.target.value } }));
+                        setRestockInputs(prev => ({ ...prev, [key]: { ...prev[key], val: e.target.value } }));
                       }}
-                        onKeyDown={e => { if (e.key === 'Enter') addOneGroup(grp); }}
-                        placeholder="合计数量" className="w-24 text-center border border-dashed border-amber-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50/20" />
+                        onKeyDown={e => { if (e.key === 'Enter') {
+                          const n = parseInt(val || '');
+                          if (n > 0) {
+                            addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: p.id, distributorId: restockDist, quantity: n, weekStart: restockDate });
+                            setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + n } }));
+                          }
+                        }}}
+                        placeholder="0" className="w-20 text-center border border-dashed border-amber-200 rounded-xl px-2 py-2 text-sm focus:outline-none focus:border-amber-400 focus:bg-amber-50/20" />
                       {val && parseInt(val) > 0 && (
-                        <button onClick={() => addOneGroup(grp)} className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold hover:bg-amber-600">+</button>
+                        <button onClick={() => {
+                          const n = parseInt(val || '');
+                          if (n > 0) {
+                            addRestock({ id: 'R' + Date.now() + Math.random().toString(36), date: restockDate, productId: p.id, distributorId: restockDist, quantity: n, weekStart: restockDate });
+                            setRestockInputs(prev => ({ ...prev, [key]: { val: '', added: (prev[key]?.added || 0) + n } }));
+                          }
+                        }} className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold hover:bg-amber-600">+</button>
                       )}
                     </div>
                   </div>
