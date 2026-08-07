@@ -112,8 +112,20 @@ export default function Dashboard() {
   }, [restocks, activeDate]);
 
   // ====== 总经销 vs 分销商 数据 ======
-  const mainDist = useMemo(() => distributors.find(d => d.role === 'main'), [distributors]);
-  const subDists = useMemo(() => distributors.filter(d => d.role === 'sub'), [distributors]);
+  const mainDist = useMemo(() => {
+    const m = distributors.find(d => d.role === 'main');
+    if (m) return m;
+    // Fallback: auto-detect — 辰日 or 唐山 first, else first distributor
+    const auto = distributors.find(d => d.name.includes('辰日')) || distributors.find(d => d.region === '唐山') || distributors[0];
+    return auto || null;
+  }, [distributors]);
+  const subDists = useMemo(() => {
+    if (!mainDist) return [];
+    const s = distributors.filter(d => d.role === 'sub');
+    if (s.length > 0) return s;
+    // Fallback: all distributors except main
+    return distributors.filter(d => d.id !== mainDist.id);
+  }, [distributors, mainDist]);
 
   const mainData = useMemo(() => {
     if (!mainDist) return null;
