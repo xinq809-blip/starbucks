@@ -14,16 +14,6 @@ export default function Dashboard() {
   const weeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
   const activeDate = weeks.length > 0 ? weeks[weeks.length - 1] : getCurrentWeekStart();
 
-  const mainDist = useMemo(() => {
-    const m = distributors.find(d => d.role === 'main');
-    return m || distributors.find(d => d.name.includes('辰日')) || distributors.find(d => d.region === '唐山') || distributors[0] || null;
-  }, [distributors]);
-  const subDists = useMemo(() => {
-    if (!mainDist) return [];
-    const s = distributors.filter(d => d.role === 'sub');
-    return s.length > 0 ? s : distributors.filter(d => d.id !== mainDist.id);
-  }, [distributors, mainDist]);
-
   const allIds = useMemo(() => distributors.map(d => d.id), [distributors]);
 
   // ====== 构建时间线：把所有进货日期和盘点日期合在一起排序 ======
@@ -109,14 +99,6 @@ export default function Dashboard() {
     const st = snapshots.filter(s => s.weekStart === activeDate && allIds.includes(s.distributorId) && s.productId === pid).reduce((a, s) => a + s.quantity, 0);
     return { name: p?.name || pid, stock: st, restock: rs, sales: Math.max(0, rs - st) };
   }), [allIds, activeDate, snapshots, restocks]);
-
-  // 供应商明细
-  const distDetails = useMemo(() => distributors.map(d => {
-    const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
-    const restock = (restocks || []).filter(r => r.distributorId === d.id).reduce((a, r) => a + r.quantity, 0);
-    const sales = Math.max(0, restock - stock);
-    return { name: d.name, region: d.region, role: d.role, stock, restock, sales };
-  }).filter(d => d.restock > 0 || d.stock > 0), [distributors, snapshots, restocks, activeDate]);
 
   return (
     <div className="p-3 md:p-6 space-y-4">
@@ -216,28 +198,25 @@ export default function Dashboard() {
               <th className="text-right px-3 py-2.5 font-medium">累计出货</th>
             </tr></thead>
             <tbody className="divide-y divide-gray-50">
-              {/* 总经销合计 */}
-              {mainDist && subDists.length > 0 && (() => {
-                const subTotal = distDetails.filter(d => d.role === 'sub').reduce((a, d) => ({ ...a, restock: a.restock + d.restock, stock: a.stock + d.stock, sales: a.sales + d.sales }), { restock: 0, stock: 0, sales: 0, name: '', region: '' });
+              {distributors.map(d => {
+                const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
+                const restock = (restocks || []).filter(r => r.distributorId === d.id).reduce((a, r) => a + r.quantity, 0);
+                const sales = Math.max(0, restock - stock);
+                if (!restock && !stock) return null;
                 return (
-                  <tr className="bg-starbucks-50/60">
-                    <td className="px-5 py-3 text-sm font-bold text-gray-800">{mainDist.name}<span className="text-[10px] text-starbucks-500 ml-1.5 font-normal">合计</span></td>
-                    <td className="px-3 py-3 text-xs text-gray-400">—</td>
-                    <td className="px-3 py-3 text-right font-bold text-blue-600">{subTotal.restock.toLocaleString()}</td>
-                    <td className="px-3 py-3 text-right font-bold text-violet-700">{subTotal.stock.toLocaleString()}</td>
-                    <td className="px-3 py-3 text-right font-bold text-emerald-600">{subTotal.sales.toLocaleString()}</td>
+                  <tr key={d.id} className={`hover:bg-gray-50/30 ${d.role === 'main' ? 'bg-starbucks-50/50' : ''}`}>
+                    <td className="px-5 py-3 font-medium text-gray-700">
+                      {d.name}
+                      {d.role === 'main' ? <span className="text-[10px] text-starbucks-500 ml-1.5 font-bold">总经销</span> :
+                       d.role === 'sub' ? <span className="text-[10px] text-gray-400 ml-1">分销商</span> : null}
+                    </td>
+                    <td className="px-3 py-3 text-xs text-gray-400">{d.region}</td>
+                    <td className="px-3 py-3 text-right text-gray-700">{restock.toLocaleString()}</td>
+                    <td className="px-3 py-3 text-right text-gray-700">{stock.toLocaleString()}</td>
+                    <td className={`px-3 py-3 text-right font-bold ${sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{sales > 0 ? sales.toLocaleString() : '—'}</td>
                   </tr>
                 );
-              })()}
-              {distDetails.map(d => (
-                <tr key={d.name} className="hover:bg-gray-50/30">
-                  <td className="px-5 py-3 font-medium text-gray-700">{d.name}{d.role === 'sub' && <span className="text-[10px] text-gray-400 ml-1">分销商</span>}</td>
-                  <td className="px-3 py-3 text-xs text-gray-400">{d.region}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{d.restock.toLocaleString()}</td>
-                  <td className="px-3 py-3 text-right text-gray-700">{d.stock.toLocaleString()}</td>
-                  <td className={`px-3 py-3 text-right font-bold ${d.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{d.sales > 0 ? d.sales.toLocaleString() : '—'}</td>
-                </tr>
-              ))}
+              })}
             </tbody>
           </table>
         </div>
