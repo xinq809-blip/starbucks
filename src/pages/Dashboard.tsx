@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { getAvailableWeeks, getCurrentWeekStart, getProductById, getCategoryLabel } from '../data/mockData';
+import { getAvailableWeeks, getCurrentWeekStart, getProductById, getProductGroupLabel } from '../data/mockData';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import { TrendingUp, Package, DollarSign, Truck, MapPin, Calendar } from 'lucide-react';
 
@@ -90,16 +90,16 @@ export default function Dashboard() {
     return map;
   }, [distributors, snapshots, restocks, activeDate]);
 
-  // 品类
+  // 品类 → 改为分组标签
   const catData = useMemo(() => {
-    const cats: Record<string, number> = {};
+    const groups: Record<string, number> = {};
     for (const p of products) {
       const rs = (restocks || []).filter(r => allIds.includes(r.distributorId) && r.productId === p.id).reduce((a, r) => a + r.quantity, 0);
       const st = snapshots.filter(s => s.weekStart === activeDate && allIds.includes(s.distributorId) && s.productId === p.id).reduce((a, s) => a + s.quantity, 0);
       const sales = Math.max(0, rs - st);
-      if (sales > 0) { const c = getCategoryLabel(p.category); cats[c] = (cats[c] || 0) + sales; }
+      if (sales > 0) { const label = getProductGroupLabel(p.id) || p.name; groups[label] = (groups[label] || 0) + sales; }
     }
-    return Object.entries(cats).map(([k, v]) => ({ name: k, value: v })).sort((a, b) => b.value - a.value);
+    return Object.entries(groups).map(([k, v]) => ({ name: k, value: v })).sort((a, b) => b.value - a.value);
   }, [allIds, activeDate, snapshots, restocks]);
 
   // 重点产品
