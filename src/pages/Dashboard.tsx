@@ -248,36 +248,64 @@ export default function Dashboard() {
 
       {/* 重点产品：450 + 椰椰 */}
       <div className="space-y-4">
-        {/* Summary cards */}
+        {/* Product cards - one 450, one 椰椰 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {focusData.map(f => (
-            <div key={f.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <h3 className="text-sm font-bold text-starbucks-700 mb-3">{f.name}</h3>
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-blue-50 rounded-xl p-3"><p className="text-xl font-bold text-blue-600">{f.restock.toLocaleString()}</p><p className="text-[10px] text-blue-400">进货</p></div>
-                <div className="bg-violet-50 rounded-xl p-3"><p className="text-xl font-bold text-violet-600">{f.stock.toLocaleString()}</p><p className="text-[10px] text-violet-400">库存</p></div>
-                <div className="bg-emerald-50 rounded-xl p-3"><p className="text-xl font-bold text-emerald-600">{f.sales.toLocaleString()}</p><p className="text-[10px] text-emerald-400">出货</p></div>
+          {[
+            { ...focusData[0], color: 'from-gray-700 to-gray-900', badge: 'bg-gray-100 text-gray-700', accent: 'bg-gray-900', title: focusData[0]?.name || 'P450 黑咖啡' },
+            { ...focusData[1], color: 'from-emerald-600 to-emerald-800', badge: 'bg-emerald-100 text-emerald-700', accent: 'bg-emerald-600', title: focusData[1]?.name || 'P270 椰椰拿铁' },
+          ].map(f => (
+            <div key={f.title} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className={`bg-gradient-to-r ${f.color} px-5 py-4 text-white`}>
+                <h3 className="text-sm font-bold">{f.title}</h3>
+                <p className="text-[10px] text-white/60 mt-0.5">重点产品跟踪</p>
+              </div>
+              <div className="p-5">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-400 mb-1">累计进货</p>
+                    <p className="text-xl font-bold text-gray-800">{f.restock.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-300">件</p>
+                  </div>
+                  <div className="text-center border-x border-gray-100">
+                    <p className="text-[10px] text-gray-400 mb-1">现有库存</p>
+                    <p className="text-xl font-bold text-gray-800">{f.stock.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-300">件</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[10px] text-gray-400 mb-1">累计出货</p>
+                    <p className={`text-xl font-bold ${f.sales > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>{f.sales.toLocaleString()}</p>
+                    <p className="text-[10px] text-gray-300">件</p>
+                  </div>
+                </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Per-distributor breakdown for 450 + 椰椰 */}
+        {/* Per-distributor breakdown */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-50">
-            <h3 className="text-sm font-bold text-gray-800">各分销商出货明细</h3>
+          <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-starbucks-500" />
+            <h3 className="text-sm font-bold text-gray-800">分销商重点产品明细</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead><tr className="border-b border-gray-100 text-gray-500">
-                <th className="text-left px-5 py-2.5 font-medium">分销商</th>
-                <th className="text-right px-3 py-2.5 font-medium">P450 进货</th>
-                <th className="text-right px-3 py-2.5 font-medium">P450 库存</th>
-                <th className="text-right px-3 py-2.5 font-medium">P450 出货</th>
-                <th className="text-right px-3 py-2.5 font-medium">椰椰 进货</th>
-                <th className="text-right px-3 py-2.5 font-medium">椰椰 库存</th>
-                <th className="text-right px-3 py-2.5 font-medium">椰椰 出货</th>
-              </tr></thead>
+              <thead>
+                <tr className="border-b border-gray-100 bg-gray-50/30 text-gray-500">
+                  <th className="text-left px-5 py-2.5 font-medium" />
+                  <th className="text-center px-3 py-2.5 font-medium" colSpan={3}>P450 黑咖啡</th>
+                  <th className="text-center px-3 py-2.5 font-medium" colSpan={3}>P270 椰椰拿铁</th>
+                </tr>
+                <tr className="border-b border-gray-100 text-gray-400 text-[10px]">
+                  <th className="text-left px-5 py-1.5 font-medium">分销商</th>
+                  <th className="text-right px-2 py-1.5 font-medium">进货</th>
+                  <th className="text-right px-2 py-1.5 font-medium">库存</th>
+                  <th className="text-right px-2 py-1.5 font-medium">出货</th>
+                  <th className="text-right px-2 py-1.5 font-medium">进货</th>
+                  <th className="text-right px-2 py-1.5 font-medium">库存</th>
+                  <th className="text-right px-2 py-1.5 font-medium">出货</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-gray-50">
                 {distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
                   const p450 = (() => {
@@ -294,12 +322,12 @@ export default function Dashboard() {
                   return (
                     <tr key={d.id} className="hover:bg-gray-50/30">
                       <td className="px-5 py-3 font-medium text-gray-700">{d.name}</td>
-                      <td className="px-3 py-3 text-right text-gray-600">{p450.restock > 0 ? p450.restock.toLocaleString() : '—'}</td>
-                      <td className="px-3 py-3 text-right text-gray-600">{p450.stock > 0 ? p450.stock.toLocaleString() : '—'}</td>
-                      <td className={`px-3 py-3 text-right font-bold ${p450.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{p450.sales > 0 ? p450.sales.toLocaleString() : '—'}</td>
-                      <td className="px-3 py-3 text-right text-gray-600">{coconut.restock > 0 ? coconut.restock.toLocaleString() : '—'}</td>
-                      <td className="px-3 py-3 text-right text-gray-600">{coconut.stock > 0 ? coconut.stock.toLocaleString() : '—'}</td>
-                      <td className={`px-3 py-3 text-right font-bold ${coconut.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{coconut.sales > 0 ? coconut.sales.toLocaleString() : '—'}</td>
+                      <td className="px-2 py-3 text-right text-gray-500">{p450.restock > 0 ? p450.restock.toLocaleString() : '—'}</td>
+                      <td className="px-2 py-3 text-right text-gray-500">{p450.stock > 0 ? p450.stock.toLocaleString() : '—'}</td>
+                      <td className={`px-2 py-3 text-right font-bold ${p450.sales > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{p450.sales > 0 ? p450.sales.toLocaleString() : '—'}</td>
+                      <td className="px-2 py-3 text-right text-gray-500">{coconut.restock > 0 ? coconut.restock.toLocaleString() : '—'}</td>
+                      <td className="px-2 py-3 text-right text-gray-500">{coconut.stock > 0 ? coconut.stock.toLocaleString() : '—'}</td>
+                      <td className={`px-2 py-3 text-right font-bold ${coconut.sales > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{coconut.sales > 0 ? coconut.sales.toLocaleString() : '—'}</td>
                     </tr>
                   );
                 })}
