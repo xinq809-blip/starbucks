@@ -268,18 +268,67 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 重点产品 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {focusData.map(f => (
-          <div key={f.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h3 className="text-sm font-bold text-starbucks-700 mb-3">{f.name}</h3>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-blue-50 rounded-xl p-3"><p className="text-xl font-bold text-blue-600">{f.restock.toLocaleString()}</p><p className="text-[10px] text-blue-400">进货</p></div>
-              <div className="bg-violet-50 rounded-xl p-3"><p className="text-xl font-bold text-violet-600">{f.stock.toLocaleString()}</p><p className="text-[10px] text-violet-400">库存</p></div>
-              <div className="bg-emerald-50 rounded-xl p-3"><p className="text-xl font-bold text-emerald-600">{f.sales.toLocaleString()}</p><p className="text-[10px] text-emerald-400">出货</p></div>
+      {/* 重点产品：450 + 椰椰 */}
+      <div className="space-y-4">
+        {/* Summary cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {focusData.map(f => (
+            <div key={f.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-starbucks-700 mb-3">{f.name}</h3>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-blue-50 rounded-xl p-3"><p className="text-xl font-bold text-blue-600">{f.restock.toLocaleString()}</p><p className="text-[10px] text-blue-400">进货</p></div>
+                <div className="bg-violet-50 rounded-xl p-3"><p className="text-xl font-bold text-violet-600">{f.stock.toLocaleString()}</p><p className="text-[10px] text-violet-400">库存</p></div>
+                <div className="bg-emerald-50 rounded-xl p-3"><p className="text-xl font-bold text-emerald-600">{f.sales.toLocaleString()}</p><p className="text-[10px] text-emerald-400">出货</p></div>
+              </div>
             </div>
+          ))}
+        </div>
+
+        {/* Per-distributor breakdown for 450 + 椰椰 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-50">
+            <h3 className="text-sm font-bold text-gray-800">各分销商出货明细</h3>
           </div>
-        ))}
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead><tr className="border-b border-gray-100 text-gray-500">
+                <th className="text-left px-5 py-2.5 font-medium">分销商</th>
+                <th className="text-right px-3 py-2.5 font-medium">P450 进货</th>
+                <th className="text-right px-3 py-2.5 font-medium">P450 库存</th>
+                <th className="text-right px-3 py-2.5 font-medium">P450 出货</th>
+                <th className="text-right px-3 py-2.5 font-medium">椰椰 进货</th>
+                <th className="text-right px-3 py-2.5 font-medium">椰椰 库存</th>
+                <th className="text-right px-3 py-2.5 font-medium">椰椰 出货</th>
+              </tr></thead>
+              <tbody className="divide-y divide-gray-50">
+                {distributors.map(d => {
+                  const p450 = (() => {
+                    const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p11').reduce((a: number, s: any) => a + s.quantity, 0);
+                    const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p11').reduce((a: number, r: any) => a + r.quantity, 0);
+                    return { stock: st, restock: rs, sales: Math.max(0, rs - st) };
+                  })();
+                  const coconut = (() => {
+                    const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p20').reduce((a: number, s: any) => a + s.quantity, 0);
+                    const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p20').reduce((a: number, r: any) => a + r.quantity, 0);
+                    return { stock: st, restock: rs, sales: Math.max(0, rs - st) };
+                  })();
+                  if (!p450.restock && !p450.stock && !coconut.restock && !coconut.stock) return null;
+                  return (
+                    <tr key={d.id} className="hover:bg-gray-50/30">
+                      <td className="px-5 py-3 font-medium text-gray-700">{d.name}</td>
+                      <td className="px-3 py-3 text-right text-gray-600">{p450.restock > 0 ? p450.restock.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-3 text-right text-gray-600">{p450.stock > 0 ? p450.stock.toLocaleString() : '—'}</td>
+                      <td className={`px-3 py-3 text-right font-bold ${p450.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{p450.sales > 0 ? p450.sales.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-3 text-right text-gray-600">{coconut.restock > 0 ? coconut.restock.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-3 text-right text-gray-600">{coconut.stock > 0 ? coconut.stock.toLocaleString() : '—'}</td>
+                      <td className={`px-3 py-3 text-right font-bold ${coconut.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{coconut.sales > 0 ? coconut.sales.toLocaleString() : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   );
