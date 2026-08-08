@@ -247,30 +247,47 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* 重点产品：450 + 椰椰 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {focusData.map(f => {
-          const is450 = f.name.includes('450');
-          return (
-            <div key={f.name} className={`bg-white rounded-2xl border border-gray-100 shadow-sm border-l-4 ${is450 ? 'border-l-gray-800' : 'border-l-emerald-500'} p-6`}>
-              <h3 className="text-base font-bold text-gray-800 mb-5">{f.name}</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">累计进货</span>
-                  <span className="text-lg font-bold text-gray-800">{f.restock.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></span>
+      {/* 重点产品 */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-starbucks-500" />重点产品分析
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { ...focusData[0], color: '#1e293b', bg: '#f8fafc', border: 'border-gray-200', tag: '黑咖啡系列' },
+            { ...focusData[1], color: '#059669', bg: '#f0fdf4', border: 'border-emerald-200', tag: '拿铁系列' },
+          ].map(f => (
+            <div key={f.name} className={`bg-white rounded-2xl border ${f.border} shadow-sm p-6`}>
+              {/* Header */}
+              <div className="flex items-center gap-2.5 mb-6">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: f.color }} />
+                <h3 className="text-sm font-bold text-gray-800">{f.name}</h3>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{f.tag}</span>
+              </div>
+
+              {/* Hero: 出货 */}
+              <div className="text-center mb-6">
+                <p className="text-[11px] text-gray-400 mb-1">累计出货</p>
+                <p className="text-4xl font-bold tracking-tight" style={{ color: f.color }}>
+                  {f.sales.toLocaleString()}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">件</p>
+              </div>
+
+              {/* 进货 + 库存 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-400 mb-0.5">累计进货</p>
+                  <p className="text-lg font-bold text-gray-700">{f.restock.toLocaleString()}</p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">现有库存</span>
-                  <span className="text-lg font-bold text-gray-800">{f.stock.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></span>
-                </div>
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                  <span className="text-sm font-medium text-gray-700">累计出货</span>
-                  <span className={`text-xl font-bold ${f.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{f.sales.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></span>
+                <div className="bg-gray-50 rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-400 mb-0.5">现有库存</p>
+                  <p className="text-lg font-bold text-gray-700">{f.stock.toLocaleString()}</p>
                 </div>
               </div>
             </div>
-          );
-        })}
+          ))}
+        </div>
       </div>
     </div>
   );
