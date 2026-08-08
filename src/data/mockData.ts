@@ -89,6 +89,20 @@ export function fmtDate(d: string): string {
   return `${dt.getMonth() + 1}月${dt.getDate()}日`;
 }
 
+// Product group mapping
+const PRODUCT_GROUPS = [
+  { label: '星选系列4味合计', ids: ['p03','p04','p05','p06'] },
+  { label: 'P270 椰椰拿铁', ids: ['p20'] },
+  { label: 'P450 黑咖啡', ids: ['p11'] },
+];
+
+export function getProductGroupLabel(pid: string): string | null {
+  for (const g of PRODUCT_GROUPS) { if (g.ids.includes(pid)) return g.label; }
+  // All other products → 其余产品
+  const allGrouped = PRODUCT_GROUPS.flatMap(g => g.ids);
+  return allGrouped.includes(pid) ? null : '其余产品';
+}
+
 export function getProductById(id: string): Product | undefined {
   return products.find((p) => p.id === id);
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
-import { getAvailableWeeks } from '../data/mockData';
+import { getAvailableWeeks, getProductGroupLabel } from '../data/mockData';
 import { Save, Check, Copy, Trash2, Package, Truck } from 'lucide-react';
 
 // Simplified groups for main distributor entry
@@ -259,10 +259,10 @@ export default function DataEntry() {
               </div>
               <div className="flex flex-wrap gap-2 p-4">
                 {restocks.filter(r => r.date === restockDate && r.distributorId === restockDist).map((r: any) => {
-                  const p = products.find((x: any) => x.id === r.productId);
+                  const label = getProductGroupLabel(r.productId) || products.find((x: any) => x.id === r.productId)?.name || r.productId;
                   return (
                     <div key={r.id} className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2 text-xs group">
-                      <span className="font-medium text-gray-700 max-w-[120px] truncate">{p?.name || r.productId}</span>
+                      <span className="font-medium text-gray-700 max-w-[120px] truncate">{label}</span>
                       <span className="font-bold text-amber-700 cursor-pointer hover:underline" onClick={() => {
                         const n = parseInt(prompt('修改数量:', String(r.quantity)) || '');
                         if (n && n > 0) editRestock(r.id, n);

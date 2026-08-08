@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { getAvailableWeeks, getWeekLabel, getProductById, getCurrentWeekStart } from '../data/mockData';
+import { getAvailableWeeks, getWeekLabel, getProductById, getCurrentWeekStart, getProductGroupLabel } from '../data/mockData';
 import { TrendingUp, Package, DollarSign, Target, Truck, Calendar } from 'lucide-react';
 
 const FOCUS_IDS = ['p11', 'p20'];
@@ -36,13 +36,22 @@ export default function Overview() {
     return a + s.quantity * (p?.unitPrice || 0);
   }, 0);
 
-  // 进货按日期分组
+  // 进货按日期+分组
   const restockByDate = useMemo(() => {
-    const map: Record<string, number> = {};
+    const map: Record<string, Record<string, number>> = {};
     for (const r of mainRestocks) {
-      map[r.date] = (map[r.date] || 0) + r.quantity;
+      const label = getProductGroupLabel(r.productId) || '其他';
+      if (!map[r.date]) map[r.date] = {};
+      map[r.date][label] = (map[r.date][label] || 0) + r.quantity;
     }
     return Object.entries(map).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [mainRestocks]);
+
+  // 按日期总计
+  const restockTotalByDate = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const r of mainRestocks) map[r.date] = (map[r.date] || 0) + r.quantity;
+    return map;
   }, [mainRestocks]);
 
   // 重点产品
@@ -98,17 +107,24 @@ export default function Overview() {
             {restockByDate.length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-6">暂无进货数据</p>
             ) : (
-              <div className="space-y-2">
-                {restockByDate.map(([date, qty]) => (
-                  <div key={date} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-xl">
-                    <div className="flex items-center gap-2">
+              <div className="space-y-3">
+                {restockByDate.map(([date, groups]) => (
+                  <div key={date} className="bg-blue-50/50 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-2">
                       <Calendar size={13} className="text-blue-400" />
-                      <span className="text-sm text-gray-700">{date}</span>
+                      <span className="text-sm font-bold text-gray-700">{date}</span>
+                      <span className="text-xs text-blue-500 ml-auto font-bold">{restockTotalByDate[date]?.toLocaleString() || 0} 件</span>
                     </div>
-                    <span className="text-sm font-bold text-blue-600">{qty.toLocaleString()} 件</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(groups).map(([label, qty]) => (
+                        <span key={label} className="text-[10px] px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full font-medium">
+                          {label} +{qty.toLocaleString()}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 ))}
-                <div className="flex items-center justify-between p-3 bg-blue-100 rounded-xl mt-2">
+                <div className="flex items-center justify-between p-3 bg-blue-100 rounded-xl">
                   <span className="text-sm font-bold text-blue-700">合计</span>
                   <span className="text-sm font-bold text-blue-700">{totalRestock.toLocaleString()} 件</span>
                 </div>
