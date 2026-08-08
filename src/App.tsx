@@ -4,7 +4,7 @@ import PasswordGate from './components/PasswordGate';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import DataEntry from './pages/DataEntry';
-import History from './pages/History';
+import DataOverview from './pages/History';
 import Products from './pages/Products';
 import Supermarket from './pages/Supermarket';
 import Billiard from './pages/Billiard';
@@ -26,7 +26,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/overview" element={<Overview />} />
             <Route path="/entry" element={<DataEntry />} />
-            <Route path="/history" element={<History />} />
+            <Route path="/history" element={<DataOverview />} />
             <Route path="/products" element={<Products />} />
             <Route path="/supermarket" element={<Supermarket />} />
             <Route path="/billiard" element={<Billiard />} />
