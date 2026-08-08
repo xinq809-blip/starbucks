@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getAvailableWeeks, getCurrentWeekStart, getProductById, getProductGroupLabel } from '../data/mockData';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Package, DollarSign, Truck, MapPin, Calendar } from 'lucide-react';
 
 const PIE_COLORS = ['#00704A','#2ea86e','#f59e0b','#8b5cf6','#ef4444','#3b82f6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6','#6366f1'];
@@ -282,39 +282,80 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Per-distributor chart comparison */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[
-            { pid: 'p11', title: 'P450 黑咖啡 · 分销商对比', color: '#1e293b' },
-            { pid: 'p20', title: 'P270 椰椰拿铁 · 分销商对比', color: '#059669' },
-          ].map(chart => {
-            const chartData = distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
-              const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === chart.pid).reduce((a: number, s: any) => a + s.quantity, 0);
-              const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === chart.pid).reduce((a: number, r: any) => a + r.quantity, 0);
-              return { name: d.name, restock: rs, stock: st, sales: Math.max(0, rs - st) };
-            }).filter(d => d.restock > 0 || d.stock > 0);
+        {/* 分销商重点产品明细 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-50">
+            <h3 className="text-sm font-bold text-gray-800">分销商重点产品明细</h3>
+          </div>
+          <div className="p-5 space-y-4">
+            {distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
+              const p450 = (() => {
+                const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p11').reduce((a: number, s: any) => a + s.quantity, 0);
+                const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p11').reduce((a: number, r: any) => a + r.quantity, 0);
+                return { stock: st, restock: rs, sales: Math.max(0, rs - st) };
+              })();
+              const coconut = (() => {
+                const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p20').reduce((a: number, s: any) => a + s.quantity, 0);
+                const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p20').reduce((a: number, r: any) => a + r.quantity, 0);
+                return { stock: st, restock: rs, sales: Math.max(0, rs - st) };
+              })();
+              const maxVal = Math.max(p450.restock, p450.stock, p450.sales, coconut.restock, coconut.stock, coconut.sales, 1);
 
-            return (
-              <div key={chart.pid} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-                <h3 className="text-sm font-bold text-gray-800 mb-4">{chart.title}</h3>
-                {chartData.length === 0 ? (
-                  <div className="h-[180px] flex items-center justify-center text-gray-400 text-sm">暂无数据</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 50)}>
-                    <BarChart data={chartData} layout="vertical" margin={{ left: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                      <XAxis type="number" tick={{ fontSize: 10 }} />
-                      <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
-                      <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
-                      <Bar dataKey="restock" name="进货" fill="#93c5fd" radius={[0, 3, 3, 0]} stackId="a" />
-                      <Bar dataKey="stock" name="库存" fill="#c4b5fd" radius={[0, 0, 0, 0]} stackId="b" />
-                      <Bar dataKey="sales" name="出货" fill={chart.color} radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            );
-          })}
+              return (
+                <div key={d.id} className="bg-gray-50/50 rounded-2xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="w-2 h-2 rounded-full bg-starbucks-500" />
+                    <span className="text-sm font-bold text-gray-800">{d.name}</span>
+                    <span className="text-[10px] text-gray-400">{d.region}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* P450 */}
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 mb-2">P450 黑咖啡</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { label: '进货', v: p450.restock, color: 'bg-blue-500' },
+                          { label: '库存', v: p450.stock, color: 'bg-violet-500' },
+                          { label: '出货', v: p450.sales, color: 'bg-gray-700' },
+                        ].map(s => (
+                          <div key={s.label} className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-500 w-7">{s.label}</span>
+                            <div className="flex-1 h-5 bg-white rounded-md overflow-hidden">
+                              <div className={`h-full ${s.color} rounded-md flex items-center justify-end px-2 transition-all`}
+                                style={{ width: `${Math.max(3, (s.v / maxVal) * 100)}%` }}>
+                                <span className="text-[10px] text-white font-bold">{s.v > 0 ? s.v.toLocaleString() : ''}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {/* 椰椰 */}
+                    <div>
+                      <p className="text-[10px] font-bold text-emerald-600 mb-2">P270 椰椰拿铁</p>
+                      <div className="space-y-1.5">
+                        {[
+                          { label: '进货', v: coconut.restock, color: 'bg-emerald-300' },
+                          { label: '库存', v: coconut.stock, color: 'bg-emerald-400' },
+                          { label: '出货', v: coconut.sales, color: 'bg-emerald-700' },
+                        ].map(s => (
+                          <div key={s.label} className="flex items-center gap-2">
+                            <span className="text-[10px] text-gray-500 w-7">{s.label}</span>
+                            <div className="flex-1 h-5 bg-white rounded-md overflow-hidden">
+                              <div className={`h-full ${s.color} rounded-md flex items-center justify-end px-2 transition-all`}
+                                style={{ width: `${Math.max(3, (s.v / maxVal) * 100)}%` }}>
+                                <span className="text-[10px] text-white font-bold">{s.v > 0 ? s.v.toLocaleString() : ''}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
