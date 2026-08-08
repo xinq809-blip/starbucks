@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getAvailableWeeks, getCurrentWeekStart, getProductById, getProductGroupLabel } from '../data/mockData';
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Package, DollarSign, Truck, MapPin, Calendar } from 'lucide-react';
 
 const PIE_COLORS = ['#00704A','#2ea86e','#f59e0b','#8b5cf6','#ef4444','#3b82f6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6','#6366f1'];
@@ -282,58 +282,39 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Per-distributor breakdown */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-starbucks-500" />
-            <h3 className="text-sm font-bold text-gray-800">分销商重点产品明细</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-gray-100 bg-gray-50/30 text-gray-500">
-                  <th className="text-left px-5 py-2.5 font-medium" />
-                  <th className="text-center px-3 py-2.5 font-medium" colSpan={3}>P450 黑咖啡</th>
-                  <th className="text-center px-3 py-2.5 font-medium" colSpan={3}>P270 椰椰拿铁</th>
-                </tr>
-                <tr className="border-b border-gray-100 text-gray-400 text-[10px]">
-                  <th className="text-left px-5 py-1.5 font-medium">分销商</th>
-                  <th className="text-right px-2 py-1.5 font-medium">进货</th>
-                  <th className="text-right px-2 py-1.5 font-medium">库存</th>
-                  <th className="text-right px-2 py-1.5 font-medium">出货</th>
-                  <th className="text-right px-2 py-1.5 font-medium">进货</th>
-                  <th className="text-right px-2 py-1.5 font-medium">库存</th>
-                  <th className="text-right px-2 py-1.5 font-medium">出货</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
-                  const p450 = (() => {
-                    const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p11').reduce((a: number, s: any) => a + s.quantity, 0);
-                    const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p11').reduce((a: number, r: any) => a + r.quantity, 0);
-                    return { stock: st, restock: rs, sales: Math.max(0, rs - st) };
-                  })();
-                  const coconut = (() => {
-                    const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p20').reduce((a: number, s: any) => a + s.quantity, 0);
-                    const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p20').reduce((a: number, r: any) => a + r.quantity, 0);
-                    return { stock: st, restock: rs, sales: Math.max(0, rs - st) };
-                  })();
-                  if (!p450.restock && !p450.stock && !coconut.restock && !coconut.stock) return null;
-                  return (
-                    <tr key={d.id} className="hover:bg-gray-50/30">
-                      <td className="px-5 py-3 font-medium text-gray-700">{d.name}</td>
-                      <td className="px-2 py-3 text-right text-gray-500">{p450.restock > 0 ? p450.restock.toLocaleString() : '—'}</td>
-                      <td className="px-2 py-3 text-right text-gray-500">{p450.stock > 0 ? p450.stock.toLocaleString() : '—'}</td>
-                      <td className={`px-2 py-3 text-right font-bold ${p450.sales > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{p450.sales > 0 ? p450.sales.toLocaleString() : '—'}</td>
-                      <td className="px-2 py-3 text-right text-gray-500">{coconut.restock > 0 ? coconut.restock.toLocaleString() : '—'}</td>
-                      <td className="px-2 py-3 text-right text-gray-500">{coconut.stock > 0 ? coconut.stock.toLocaleString() : '—'}</td>
-                      <td className={`px-2 py-3 text-right font-bold ${coconut.sales > 0 ? 'text-gray-800' : 'text-gray-300'}`}>{coconut.sales > 0 ? coconut.sales.toLocaleString() : '—'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        {/* Per-distributor chart comparison */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {[
+            { pid: 'p11', title: 'P450 黑咖啡 · 分销商对比', color: '#1e293b' },
+            { pid: 'p20', title: 'P270 椰椰拿铁 · 分销商对比', color: '#059669' },
+          ].map(chart => {
+            const chartData = distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
+              const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === chart.pid).reduce((a: number, s: any) => a + s.quantity, 0);
+              const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === chart.pid).reduce((a: number, r: any) => a + r.quantity, 0);
+              return { name: d.name, restock: rs, stock: st, sales: Math.max(0, rs - st) };
+            }).filter(d => d.restock > 0 || d.stock > 0);
+
+            return (
+              <div key={chart.pid} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="text-sm font-bold text-gray-800 mb-4">{chart.title}</h3>
+                {chartData.length === 0 ? (
+                  <div className="h-[180px] flex items-center justify-center text-gray-400 text-sm">暂无数据</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={Math.max(120, chartData.length * 50)}>
+                    <BarChart data={chartData} layout="vertical" margin={{ left: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                      <XAxis type="number" tick={{ fontSize: 10 }} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
+                      <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
+                      <Bar dataKey="restock" name="进货" fill="#93c5fd" radius={[0, 3, 3, 0]} stackId="a" />
+                      <Bar dataKey="stock" name="库存" fill="#c4b5fd" radius={[0, 0, 0, 0]} stackId="b" />
+                      <Bar dataKey="sales" name="出货" fill={chart.color} radius={[0, 4, 4, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
