@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getAvailableWeeks, getCurrentWeekStart, getProductById, getProductGroupLabel } from '../data/mockData';
-import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, Package, DollarSign, Truck, MapPin, Calendar } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { TrendingUp, Package, DollarSign, MapPin, Calendar } from 'lucide-react';
 
 const PIE_COLORS = ['#00704A','#2ea86e','#f59e0b','#8b5cf6','#ef4444','#3b82f6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6','#6366f1'];
 const FOCUS_IDS = ['p11', 'p20'];
@@ -15,9 +15,10 @@ export default function Dashboard() {
   const activeDate = weeks.length > 0 ? weeks[weeks.length - 1] : getCurrentWeekStart();
 
   // 看板只显示分销商数据，唐山辰日只在总看板显示
-  const allIds = useMemo(() =>
-    distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => d.id)
+  const subs = useMemo(() =>
+    distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日'))
   , [distributors]);
+  const allIds = useMemo(() => subs.map(d => d.id), [subs]);
 
   // ====== 构建时间线：把所有进货日期和盘点日期合在一起排序 ======
   const timeline = useMemo(() => {
@@ -103,6 +104,25 @@ export default function Dashboard() {
     return { name: p?.name || pid, stock: st, restock: rs, sales: Math.max(0, rs - st) };
   }), [allIds, activeDate, snapshots, restocks]);
 
+  // 重点产品每月出货趋势
+  const focusMonthly = useMemo(() => {
+    // Get unique months from snapshots
+    const months = [...new Set(snapshots.map(s => s.weekStart.slice(0, 7)))].sort();
+    return FOCUS_IDS.map(pid => {
+      const p = getProductById(pid);
+      const data = months.map(m => {
+        // Find the latest snapshot in this month for each distributor, sum sales
+        const mSnaps = snapshots.filter(s => s.weekStart.startsWith(m) && allIds.includes(s.distributorId) && s.productId === pid);
+        if (mSnaps.length === 0) return { month: m.replace('-', '年') + '月', sales: 0, stock: 0 };
+        const stock = mSnaps.reduce((a, s) => a + s.quantity, 0);
+        const restock = (restocks || []).filter(r => allIds.includes(r.distributorId) && r.productId === pid && r.date.startsWith(m)).reduce((a, r) => a + r.quantity, 0);
+        const sales = Math.max(0, restock - stock);
+        return { month: m.replace('-', '年') + '月', sales, stock };
+      });
+      return { name: p?.name || pid, data };
+    });
+  }, [allIds, snapshots, restocks]);
+
   return (
     <div className="p-3 md:p-6 space-y-4">
       <div>
@@ -115,10 +135,10 @@ export default function Dashboard() {
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: '累计进货', v: totalRestock, unit: '件', icon: Truck, color: 'text-blue-600', bg: 'bg-blue-50' },
           { label: '现有库存', v: curStock, unit: '件', icon: Package, color: 'text-violet-600', bg: 'bg-violet-50' },
           { label: '累计出货', v: totalSales, unit: '件', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
           { label: '库存价值', v: '¥' + (curValue / 10000).toFixed(1), unit: '万', icon: DollarSign, color: 'text-amber-600', bg: 'bg-amber-50' },
+          { label: '分销商', v: subs.length, unit: '家', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50' },
         ].map(c => (
           <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500">{c.label}</span><div className={`p-1.5 rounded-lg ${c.bg}`}><c.icon size={15} className={c.color} /></div></div>
@@ -356,6 +376,28 @@ export default function Dashboard() {
               );
             })}
           </div>
+        </div>
+
+        {/* 重点产品月度出货趋势 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {focusMonthly.map(f => (
+            <div key={f.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+              <h3 className="text-sm font-bold text-gray-800 mb-3">{f.name} · 月度出货</h3>
+              {f.data.some(d => d.sales > 0) ? (
+                <ResponsiveContainer width="100%" height={200}>
+                  <BarChart data={f.data}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
+                    <Bar dataKey="sales" name="出货" fill={f.name.includes('450') ? '#1e293b' : '#059669'} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[200px] flex items-center justify-center text-gray-400 text-sm">暂无月度数据</div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
