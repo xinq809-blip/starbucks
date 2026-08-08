@@ -9,7 +9,7 @@ const navGroups = [
       { to: '/', icon: LayoutDashboard, label: '看板', end: true },
       { to: '/overview', icon: Target, label: '总看板', end: false },
       { to: '/entry', icon: PencilLine, label: '录入', end: false },
-      { to: '/history', icon: History, label: '总览', end: false },
+      { to: '/history', icon: History, label: '排名', end: false },
       { to: '/products', icon: Package, label: '产品', end: false },
     ],
   },
