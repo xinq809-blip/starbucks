@@ -49,7 +49,8 @@ export default function Dashboard() {
   const calcDist = (distId: string) => {
     const stock = snapshots.filter(s => s.weekStart === activeCurr && s.distributorId === distId).reduce((a: number, s: any) => a + s.quantity, 0);
     const prevStock = activePrev ? snapshots.filter(s => s.weekStart === activePrev && s.distributorId === distId).reduce((a: number, s: any) => a + s.quantity, 0) : 0;
-    const restock = (restocks || []).filter((x: any) => x.distributorId === distId && x.date > (activePrev || '2000-01-01') && x.date <= activeCurr).reduce((a: number, x: any) => a + x.quantity, 0);
+    // 全部进货（不限开始日期），包含盘点前的所有进货
+    const restock = (restocks || []).filter((x: any) => x.distributorId === distId && x.date <= activeCurr).reduce((a: number, x: any) => a + x.quantity, 0);
     const sales = Math.max(0, prevStock + restock - stock);
     return { stock, prevStock, restock, sales };
   };
@@ -59,7 +60,7 @@ export default function Dashboard() {
     for (const id of ids) {
       stock += snapshots.filter(s => s.weekStart === activeCurr && s.distributorId === id && s.productId === pid).reduce((a: number, s: any) => a + s.quantity, 0);
       prevStock += activePrev ? snapshots.filter(s => s.weekStart === activePrev && s.distributorId === id && s.productId === pid).reduce((a: number, s: any) => a + s.quantity, 0) : 0;
-      restock += (restocks || []).filter((x: any) => x.distributorId === id && x.date > (activePrev || '2000-01-01') && x.date <= activeCurr && x.productId === pid).reduce((a: number, x: any) => a + x.quantity, 0);
+      restock += (restocks || []).filter((x: any) => x.distributorId === id && x.date <= activeCurr && x.productId === pid).reduce((a: number, x: any) => a + x.quantity, 0);
     }
     return { stock, prevStock, restock, sales: Math.max(0, prevStock + restock - stock) };
   };
