@@ -14,7 +14,10 @@ export default function Dashboard() {
   const weeks = useMemo(() => getAvailableWeeks(snapshots), [snapshots]);
   const activeDate = weeks.length > 0 ? weeks[weeks.length - 1] : getCurrentWeekStart();
 
-  const allIds = useMemo(() => distributors.map(d => d.id), [distributors]);
+  // 看板只显示分销商数据，唐山辰日只在总看板显示
+  const allIds = useMemo(() =>
+    distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => d.id)
+  , [distributors]);
 
   // ====== 构建时间线：把所有进货日期和盘点日期合在一起排序 ======
   const timeline = useMemo(() => {
@@ -71,7 +74,7 @@ export default function Dashboard() {
   // 区域
   const regionData = useMemo(() => {
     const map: Record<string, { stock: number; restock: number }> = {};
-    for (const d of distributors) {
+    for (const d of distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日'))) {
       const r = d.region || '其他';
       if (!map[r]) map[r] = { stock: 0, restock: 0 };
       map[r].stock += snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
@@ -198,18 +201,14 @@ export default function Dashboard() {
               <th className="text-right px-3 py-2.5 font-medium">累计出货</th>
             </tr></thead>
             <tbody className="divide-y divide-gray-50">
-              {distributors.map(d => {
+              {distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
                 const stock = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id).reduce((a, s) => a + s.quantity, 0);
                 const restock = (restocks || []).filter(r => r.distributorId === d.id).reduce((a, r) => a + r.quantity, 0);
                 const sales = Math.max(0, restock - stock);
                 if (!restock && !stock) return null;
                 return (
-                  <tr key={d.id} className={`hover:bg-gray-50/30 ${d.role === 'main' ? 'bg-starbucks-50/50' : ''}`}>
-                    <td className="px-5 py-3 font-medium text-gray-700">
-                      {d.name}
-                      {d.role === 'main' ? <span className="text-[10px] text-starbucks-500 ml-1.5 font-bold">总经销</span> :
-                       d.role === 'sub' ? <span className="text-[10px] text-gray-400 ml-1">分销商</span> : null}
-                    </td>
+                  <tr key={d.id} className="hover:bg-gray-50/30">
+                    <td className="px-5 py-3 font-medium text-gray-700">{d.name}</td>
                     <td className="px-3 py-3 text-xs text-gray-400">{d.region}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{restock.toLocaleString()}</td>
                     <td className="px-3 py-3 text-right text-gray-700">{stock.toLocaleString()}</td>
@@ -280,7 +279,7 @@ export default function Dashboard() {
                 <th className="text-right px-3 py-2.5 font-medium">椰椰 出货</th>
               </tr></thead>
               <tbody className="divide-y divide-gray-50">
-                {distributors.map(d => {
+                {distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
                   const p450 = (() => {
                     const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === 'p11').reduce((a: number, s: any) => a + s.quantity, 0);
                     const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === 'p11').reduce((a: number, r: any) => a + r.quantity, 0);
