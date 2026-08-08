@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getAvailableWeeks, getCurrentWeekStart, getProductById, getProductGroupLabel } from '../data/mockData';
-import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Package, DollarSign, MapPin, Calendar } from 'lucide-react';
 
 const PIE_COLORS = ['#00704A','#2ea86e','#f59e0b','#8b5cf6','#ef4444','#3b82f6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6','#6366f1'];
@@ -103,25 +103,6 @@ export default function Dashboard() {
     const st = snapshots.filter(s => s.weekStart === activeDate && allIds.includes(s.distributorId) && s.productId === pid).reduce((a, s) => a + s.quantity, 0);
     return { name: p?.name || pid, stock: st, restock: rs, sales: Math.max(0, rs - st) };
   }), [allIds, activeDate, snapshots, restocks]);
-
-  // 重点产品每月出货趋势
-  const focusMonthly = useMemo(() => {
-    // Get unique months from snapshots
-    const months = [...new Set(snapshots.map(s => s.weekStart.slice(0, 7)))].sort();
-    return FOCUS_IDS.map(pid => {
-      const p = getProductById(pid);
-      const data = months.map(m => {
-        // Find the latest snapshot in this month for each distributor, sum sales
-        const mSnaps = snapshots.filter(s => s.weekStart.startsWith(m) && allIds.includes(s.distributorId) && s.productId === pid);
-        if (mSnaps.length === 0) return { month: m.replace('-', '年') + '月', sales: 0, stock: 0 };
-        const stock = mSnaps.reduce((a, s) => a + s.quantity, 0);
-        const restock = (restocks || []).filter(r => allIds.includes(r.distributorId) && r.productId === pid && r.date.startsWith(m)).reduce((a, r) => a + r.quantity, 0);
-        const sales = Math.max(0, restock - stock);
-        return { month: m.replace('-', '年') + '月', sales, stock };
-      });
-      return { name: p?.name || pid, data };
-    });
-  }, [allIds, snapshots, restocks]);
 
   return (
     <div className="p-3 md:p-6 space-y-4">
@@ -268,46 +249,24 @@ export default function Dashboard() {
 
       {/* 重点产品：450 + 椰椰 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {focusData.map((f, i) => {
+        {focusData.map(f => {
           const is450 = f.name.includes('450');
           return (
-            <div key={f.name} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className={`px-5 py-4 ${is450 ? 'bg-gray-900' : 'bg-emerald-600'} text-white`}>
-                <h3 className="text-sm font-bold">{f.name}</h3>
-              </div>
-              <div className="p-5">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <p className="text-[11px] text-gray-400 mb-1">累计进货</p>
-                    <p className="text-2xl font-bold text-gray-800">{f.restock.toLocaleString()}</p>
-                    <p className="text-[10px] text-gray-300">件</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-400 mb-1">现有库存</p>
-                    <p className="text-2xl font-bold text-gray-800">{f.stock.toLocaleString()}</p>
-                    <p className="text-[10px] text-gray-300">件</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-gray-400 mb-1">累计出货</p>
-                    <p className={`text-2xl font-bold ${f.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{f.sales.toLocaleString()}</p>
-                    <p className="text-[10px] text-gray-300">件</p>
-                  </div>
+            <div key={f.name} className={`bg-white rounded-2xl border border-gray-100 shadow-sm border-l-4 ${is450 ? 'border-l-gray-800' : 'border-l-emerald-500'} p-6`}>
+              <h3 className="text-base font-bold text-gray-800 mb-5">{f.name}</h3>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">累计进货</span>
+                  <span className="text-lg font-bold text-gray-800">{f.restock.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></span>
                 </div>
-
-                {/* Monthly trend inside card */}
-                {focusMonthly[i]?.data.some(d => d.sales > 0) && (
-                  <div className="mt-4 pt-4 border-t border-gray-100">
-                    <p className="text-[10px] text-gray-400 mb-2">月度出货趋势</p>
-                    <ResponsiveContainer width="100%" height={140}>
-                      <BarChart data={focusMonthly[i].data}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
-                        <XAxis dataKey="month" tick={{ fontSize: 9 }} />
-                        <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
-                        <Bar dataKey="sales" fill={is450 ? '#1e293b' : '#059669'} radius={[3, 3, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-500">现有库存</span>
+                  <span className="text-lg font-bold text-gray-800">{f.stock.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></span>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <span className="text-sm font-medium text-gray-700">累计出货</span>
+                  <span className={`text-xl font-bold ${f.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{f.sales.toLocaleString()} <span className="text-xs font-normal text-gray-400">件</span></span>
+                </div>
               </div>
             </div>
           );
