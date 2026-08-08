@@ -53,7 +53,10 @@ export default function BilliardPage() {
     setForm({ name: item.name, address: item.address, contact: item.contact, phone: item.phone, manager: item.manager || '', status: item.status, stage: item.stage, orderQty: item.orderQty ?? 0, displayFee: item.displayFee ?? 0, remark: item.remark });
   };
 
-  const del = (id: string) => flush(items.filter((i) => i.id !== id));
+  const del = async (id: string) => {
+    flush(items.filter((i) => i.id !== id));
+    try { await supabase.from('billiard_locations').delete().eq('id', id); } catch {}
+  };
 
   // Summary
   const summary = useMemo(() => {

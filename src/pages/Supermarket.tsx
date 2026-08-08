@@ -384,7 +384,10 @@ function DetailTable({ type, items, setItems, search }: { type: string; items: a
     const q = search.toLowerCase();
     return items.filter((i: any) => i.productName?.toLowerCase().includes(q) || i.platform?.toLowerCase().includes(q));
   }, [items, search]);
-  const del = (id: string) => setItems(items.filter((i: any) => i.id !== id));
+  const del = async (id: string) => {
+    setItems(items.filter((i: any) => i.id !== id));
+    try { await supabase.from('supermarket_locations').delete().eq('id', id); } catch {}
+  };
   const advance = (id: string) => {
     const item = items.find((i: any) => i.id === id);
     const nextMap = type === 'listing' ? NEXT.listing : type === 'promo' ? NEXT.promo : NEXT.rollout;

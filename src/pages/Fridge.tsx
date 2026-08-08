@@ -33,7 +33,11 @@ export default function FridgePage() {
     setModal(null); setAdding(false);
   };
 
-  const del = (id: string) => { if (confirm('确认删除这台冰箱？')) flush(items.filter(i => i.id !== id)); };
+  const del = async (id: string) => {
+    if (!confirm('确认删除这台冰箱？')) return;
+    flush(items.filter(i => i.id !== id));
+    try { await supabase.from('fridges').delete().eq('id', id); } catch {}
+  };
 
   const filtered = useMemo(() => {
     if (!search) return items;
