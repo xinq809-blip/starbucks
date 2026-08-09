@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { getAvailableWeeks, getCurrentWeekStart, getProductById, getProductGroupLabel } from '../data/mockData';
-import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, Package, DollarSign, MapPin, Calendar } from 'lucide-react';
 
 const PIE_COLORS = ['#00704A','#2ea86e','#f59e0b','#8b5cf6','#ef4444','#3b82f6','#ec4899','#06b6d4','#84cc16','#f97316','#14b8a6','#6366f1'];
@@ -287,6 +287,40 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* 分销商出货排名图表 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {FOCUS_IDS.map(pid => {
+            const p = getProductById(pid);
+            const distSales = distributors.filter(d => d.role !== 'main' && !d.name.includes('辰日')).map(d => {
+              const st = snapshots.filter(s => s.weekStart === activeDate && s.distributorId === d.id && s.productId === pid).reduce((a: number, s: any) => a + s.quantity, 0);
+              const rs = (restocks || []).filter((r: any) => r.distributorId === d.id && r.productId === pid).reduce((a: number, r: any) => a + r.quantity, 0);
+              return { name: d.name, sales: Math.max(0, rs - st) };
+            }).sort((a, b) => b.sales - a.sales);
+
+            const is450 = pid === 'p11';
+            const barColor = is450 ? '#1e293b' : '#059669';
+
+            return (
+              <div key={pid} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h4 className="text-xs font-bold text-gray-700 mb-3">{p?.name} · 分销商出货排名</h4>
+                {distSales.length > 0 ? (
+                  <ResponsiveContainer width="100%" height={Math.max(100, distSales.length * 40)}>
+                    <BarChart data={distSales} layout="vertical" margin={{ left: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                      <XAxis type="number" tick={{ fontSize: 10 }} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={80} />
+                      <Tooltip formatter={(v: any) => Number(v).toLocaleString() + ' 件'} />
+                      <Bar dataKey="sales" name="出货" fill={barColor} radius={[0, 4, 4, 0]} label={{ position: 'right', fontSize: 10, formatter: (v: any) => v > 0 ? Number(v).toLocaleString() : '' }} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[100px] flex items-center justify-center text-gray-400 text-xs">暂无数据</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
