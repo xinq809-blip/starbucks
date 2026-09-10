@@ -63,6 +63,29 @@ export default function Overview() {
     return { name: p?.name || pid, stock, restock, sales };
   }), [mainId, activeDate, snapshots, restocks]);
 
+  // ====== 月度汇总 ======
+  const monthlySummary = useMemo(() => {
+    const months = new Set<string>();
+    (restocks || []).forEach(r => { if (r.distributorId === mainId) months.add(r.date.slice(0, 7)); });
+    snapshots.forEach(s => { if (s.distributorId === mainId) months.add(s.weekStart.slice(0, 7)); });
+    const sortedMonths = [...months].sort();
+    return sortedMonths.map((m, idx) => {
+      const mRestock = (restocks || []).filter(r => r.distributorId === mainId && r.date.startsWith(m)).reduce((s, r) => s + r.quantity, 0);
+      const mSnaps = snapshots.filter(s => s.distributorId === mainId && s.weekStart.startsWith(m)).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+      const lastSnapDate = mSnaps.length > 0 ? mSnaps[mSnaps.length - 1].weekStart : null;
+      const endStock = lastSnapDate ? snapshots.filter(s => s.weekStart === lastSnapDate && s.distributorId === mainId).reduce((a, s) => a + s.quantity, 0) : 0;
+      let openingStock = 0;
+      if (idx > 0) {
+        const prevMonth = sortedMonths[idx - 1];
+        const prevSnaps = snapshots.filter(s => s.distributorId === mainId && s.weekStart.startsWith(prevMonth)).sort((a, b) => a.weekStart.localeCompare(b.weekStart));
+        const prevLastDate = prevSnaps.length > 0 ? prevSnaps[prevSnaps.length - 1].weekStart : null;
+        openingStock = prevLastDate ? snapshots.filter(s => s.weekStart === prevLastDate && s.distributorId === mainId).reduce((a, s) => a + s.quantity, 0) : 0;
+      }
+      const mSales = Math.max(0, openingStock + mRestock - endStock);
+      return { month: m, label: m.replace('-', '年') + '月', openingStock, restock: mRestock, endStock, sales: mSales };
+    });
+  }, [mainId, snapshots, restocks]);
+
   if (!mainDist) {
     return <div className="p-8 text-center text-gray-400">请先在经销商管理中添加总经销商（唐山辰日）</div>;
   }
@@ -95,6 +118,42 @@ export default function Overview() {
               <div className="text-[11px] text-gray-400 mt-1">{c.sub}</div>
             </div>
           ))}
+        </div>
+
+        {/* 月度汇总 */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-gray-50">
+            <h3 className="text-sm font-bold text-gray-800">月度汇总</h3>
+            <p className="text-[11px] text-gray-400 mt-0.5">每月进货、期初/期末库存、当月销售</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 text-gray-500 text-xs">
+                  <th className="text-left px-5 py-2.5 font-medium">月份</th>
+                  <th className="text-right px-3 py-2.5 font-medium">月初库存</th>
+                  <th className="text-right px-3 py-2.5 font-medium">当月进货</th>
+                  <th className="text-right px-3 py-2.5 font-medium">月底库存</th>
+                  <th className="text-right px-3 py-2.5 font-medium">当月销售</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {monthlySummary.length === 0 ? (
+                  <tr><td colSpan={5} className="text-center py-8 text-gray-400 text-sm">暂无数据，录入后自动生成</td></tr>
+                ) : (
+                  monthlySummary.map(row => (
+                    <tr key={row.month} className="hover:bg-gray-50/30">
+                      <td className="px-5 py-3 font-bold text-gray-800">{row.label}</td>
+                      <td className="px-3 py-3 text-right text-gray-500">{row.openingStock > 0 ? row.openingStock.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-3 text-right text-blue-600 font-medium">{row.restock > 0 ? '+' + row.restock.toLocaleString() : '—'}</td>
+                      <td className="px-3 py-3 text-right font-bold text-violet-700">{row.endStock > 0 ? row.endStock.toLocaleString() : '—'}</td>
+                      <td className={`px-3 py-3 text-right font-bold ${row.sales > 0 ? 'text-emerald-600' : 'text-gray-300'}`}>{row.sales > 0 ? row.sales.toLocaleString() : '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* 进货明细 + 盘点记录 */}
