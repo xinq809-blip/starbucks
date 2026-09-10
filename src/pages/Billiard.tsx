@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { Plus, Trash2, Check, X, Pencil, Upload, Download } from 'lucide-react';
 import type { BilliardLocation } from '../types/billiard';
 import { supabase } from '../lib/supabase';
+import * as XLSX from 'xlsx';
 
 const STAGES = ['初次接触', '意向确认', '合同谈判', '签约完成', '装修进场', '正式运营', '已关闭'];
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
@@ -66,16 +67,29 @@ export default function BilliardPage() {
     'cooperating': 'cooperating', 'negotiating': 'negotiating', 'not_needed': 'not_needed',
   };
 
-  const importCSV = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = String(e.target?.result || '');
-      const rows = text.split(/\r?\n/).filter(r => r.trim());
-      if (rows.length < 2) { alert('CSV 内容为空'); return; }
-      // 第一行表头，跳过；表头：名称,地址,联系人,电话,负责人,状态,阶段,订货量,陈列费,备注
+  const importCSV = async (file: File) => {
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      let rows: string[][] = [];
+
+      if (ext === 'xlsx' || ext === 'xls') {
+        // Excel 文件用 SheetJS 解析
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
+      } else {
+        // CSV 文件，用 GBK 编码读取（兼容中文 Excel）
+        const buf = await file.arrayBuffer();
+        const text = new TextDecoder('gbk').decode(buf);
+        rows = text.split(/\r?\n/).filter(r => r.trim()).map(r => r.split(',').map(c => c.trim()));
+      }
+
+      if (rows.length < 2) { alert('文件内容为空或格式不对'); return; }
+
       const newItems: BilliardLocation[] = [];
       for (let i = 1; i < rows.length; i++) {
-        const cols = rows[i].split(',').map(c => c.trim());
+        const cols = (rows[i] || []).map((c: any) => String(c ?? '').trim());
         if (!cols[0]) continue;
         const name = cols[0];
         const address = cols[1] || '';
@@ -89,11 +103,12 @@ export default function BilliardPage() {
         const remark = cols.slice(9).join(',') || '';
         newItems.push({ id: genId(), name, address, contact, phone, manager, status, stage, orderQty, displayFee, remark, date: new Date().toISOString().slice(0, 10) });
       }
-      if (newItems.length === 0) { alert('没有解析到有效数据'); return; }
+      if (newItems.length === 0) { alert('没有解析到有效数据，请检查表头是否为：名称,地址,联系人,电话,负责人,状态,阶段,订货量,陈列费,备注'); return; }
       flush([...items, ...newItems]);
       alert(`成功导入 ${newItems.length} 条网点`);
-    };
-    reader.readAsText(file);
+    } catch (err: any) {
+      alert('导入失败：' + (err?.message || '文件解析错误'));
+    }
   };
 
   const exportCSV = () => {
@@ -158,7 +173,7 @@ export default function BilliardPage() {
           <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap">
             <Upload size={14} />批量导入
           </button>
-          <input ref={fileRef} type="file" accept=".csv" onChange={e => { const f = e.target.files?.[0]; if (f) importCSV(f); e.target.value = ''; }} className="hidden" />
+          <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls" onChange={e => { const f = e.target.files?.[0]; if (f) importCSV(f); e.target.value = ''; }} className="hidden" />
         </div>
       </div>
 
