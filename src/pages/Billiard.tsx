@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Check, X, Pencil } from 'lucide-react';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { Plus, Trash2, Check, X, Pencil, Upload, Download } from 'lucide-react';
 import type { BilliardLocation } from '../types/billiard';
 import { supabase } from '../lib/supabase';
 
@@ -58,6 +58,58 @@ export default function BilliardPage() {
     try { await supabase.from('billiard_locations').delete().eq('id', id); } catch {}
   };
 
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  // 状态中文 ↔ 英文映射
+  const STATUS_REVERSE: Record<string, BilliardLocation['status']> = {
+    '已完成合作': 'cooperating', '沟通中': 'negotiating', '不需要': 'not_needed',
+    'cooperating': 'cooperating', 'negotiating': 'negotiating', 'not_needed': 'not_needed',
+  };
+
+  const importCSV = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = String(e.target?.result || '');
+      const rows = text.split(/\r?\n/).filter(r => r.trim());
+      if (rows.length < 2) { alert('CSV 内容为空'); return; }
+      // 第一行表头，跳过；表头：名称,地址,联系人,电话,负责人,状态,阶段,订货量,陈列费,备注
+      const newItems: BilliardLocation[] = [];
+      for (let i = 1; i < rows.length; i++) {
+        const cols = rows[i].split(',').map(c => c.trim());
+        if (!cols[0]) continue;
+        const name = cols[0];
+        const address = cols[1] || '';
+        const contact = cols[2] || '';
+        const phone = cols[3] || '';
+        const manager = cols[4] || '';
+        const status = STATUS_REVERSE[cols[5]] || 'negotiating';
+        const stage = cols[6] || '初次接触';
+        const orderQty = parseInt(cols[7]) || 0;
+        const displayFee = parseInt(cols[8]) || 0;
+        const remark = cols.slice(9).join(',') || '';
+        newItems.push({ id: genId(), name, address, contact, phone, manager, status, stage, orderQty, displayFee, remark, date: new Date().toISOString().slice(0, 10) });
+      }
+      if (newItems.length === 0) { alert('没有解析到有效数据'); return; }
+      flush([...items, ...newItems]);
+      alert(`成功导入 ${newItems.length} 条网点`);
+    };
+    reader.readAsText(file);
+  };
+
+  const exportCSV = () => {
+    if (items.length === 0) { alert('暂无数据可导出'); return; }
+    const header = '名称,地址,联系人,电话,负责人,状态,阶段,订货量,陈列费,备注';
+    const statusLabel = (s: BilliardLocation['status']) => STATUS_MAP[s]?.label || s;
+    const rows = items.map(i => [i.name, i.address, i.contact, i.phone, i.manager, statusLabel(i.status), i.stage, i.orderQty, i.displayFee, i.remark].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','));
+    const csv = '﻿' + [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `台球厅网点_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   // Summary
   const summary = useMemo(() => {
     const cooperating = items.filter((i) => i.status === 'cooperating');
@@ -94,9 +146,20 @@ export default function BilliardPage() {
 
   return (
     <div className="p-3 md:p-6 space-y-4">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-gray-800">台球厅专案开发</h1>
-        <p className="text-xs text-gray-400 mt-0.5">网点开发明细 · 进度追踪</p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">台球厅专案开发</h1>
+          <p className="text-xs text-gray-400 mt-0.5">网点开发明细 · 进度追踪</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={exportCSV} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap">
+            <Download size={14} />导出
+          </button>
+          <button onClick={() => fileRef.current?.click()} className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 whitespace-nowrap">
+            <Upload size={14} />批量导入
+          </button>
+          <input ref={fileRef} type="file" accept=".csv" onChange={e => { const f = e.target.files?.[0]; if (f) importCSV(f); e.target.value = ''; }} className="hidden" />
+        </div>
       </div>
 
       {/* Summary cards */}
