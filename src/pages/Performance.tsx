@@ -161,48 +161,49 @@ export default function PerformancePage() {
 
         {/* Monthly table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-50">
-            <h3 className="text-sm font-bold text-gray-700">月度明细</h3>
+          <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-800">月度明细</h3>
+            <span className="text-xs text-gray-400">点击月份可切换查看</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full">
               <thead>
-                <tr className="bg-gray-50/50 text-[11px] text-gray-400">
-                  <th className="text-left px-6 py-3 font-medium">月份</th>
-                  <th className="text-right px-4 py-3 font-medium">目标</th>
-                  <th className="text-right px-4 py-3 font-medium">实际</th>
-                  <th className="text-right px-4 py-3 font-medium">达成率</th>
-                  <th className="text-right px-4 py-3 font-medium">去年同期</th>
-                  <th className="text-right px-4 py-3 font-medium">同比增长</th>
-                  <th className="text-right px-4 py-3 font-medium">缺口</th>
-                  <th className="text-left px-4 py-3 font-medium">备注</th>
-                  <th className="text-center px-3 py-3 w-16">操作</th>
+                <tr className="bg-gray-50/50 text-sm text-gray-500 border-b border-gray-100">
+                  <th className="text-left px-6 py-3.5 font-semibold">月份</th>
+                  <th className="text-right px-5 py-3.5 font-semibold">目标</th>
+                  <th className="text-right px-5 py-3.5 font-semibold">实际</th>
+                  <th className="text-right px-5 py-3.5 font-semibold">达成率</th>
+                  <th className="text-right px-5 py-3.5 font-semibold">去年同期</th>
+                  <th className="text-right px-5 py-3.5 font-semibold">同比增长</th>
+                  <th className="text-right px-5 py-3.5 font-semibold">缺口</th>
+                  <th className="text-left px-5 py-3.5 font-semibold">备注</th>
+                  <th className="text-center px-4 py-3.5 w-16">操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
                 {report.data.filter(d => d.month >= '2026-01').map(d => (
-                  <tr key={d.month} className={`hover:bg-gray-50/30 ${d.month === selectedMonth ? 'bg-blue-50/30' : ''}`}
+                  <tr key={d.month} className={`hover:bg-gray-50/40 transition-colors cursor-pointer ${d.month === selectedMonth ? 'bg-starbucks-50/40' : ''}`}
                     onClick={() => setSelectedMonth(d.month)}>
-                    <td className="px-6 py-3 text-xs font-medium text-gray-800">{d.label}</td>
-                    <td className="px-4 py-3 text-right text-xs text-gray-700">{d.target > 0 ? fmt(d.target) : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold text-gray-800">{d.actual > 0 ? fmt(d.actual) : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-6 py-4 text-base font-bold text-gray-800">{d.label}</td>
+                    <td className="px-5 py-4 text-right text-base text-gray-600">{d.target > 0 ? fmt(d.target) : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-5 py-4 text-right text-lg font-bold text-gray-900">{d.actual > 0 ? fmt(d.actual) : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-5 py-4 text-right">
                       {d.target > 0 ? (
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${d.rate >= 100 ? 'bg-emerald-50 text-emerald-600' : d.rate >= 80 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'}`}>
+                        <span className={`inline-block text-sm font-bold px-3 py-1 rounded-full ${d.rate >= 100 ? 'bg-emerald-100 text-emerald-700' : d.rate >= 80 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-600'}`}>
                           {d.rate}%
                         </span>
                       ) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-gray-500">{d.lastYear > 0 ? fmt(d.lastYear) : <span className="text-gray-300">—</span>}</td>
-                    <td className="px-4 py-3 text-right text-xs font-bold" style={{ color: d.yoyGrowth >= 0 ? '#059669' : '#ef4444' }}>
+                    <td className="px-5 py-4 text-right text-base text-gray-500">{d.lastYear > 0 ? fmt(d.lastYear) : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-5 py-4 text-right text-base font-bold" style={{ color: d.yoyGrowth >= 0 ? '#059669' : '#ef4444' }}>
                       {d.lastYear > 0 ? (d.yoyGrowth >= 0 ? '+' : '') + d.yoyGrowth + '%' : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-xs text-red-500">
+                    <td className="px-5 py-4 text-right text-base font-semibold text-red-500">
                       {d.target > 0 && d.actual < d.target ? fmt(d.target - d.actual) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-400 max-w-[100px] truncate">{d.entry?.remark || ''}</td>
-                    <td className="px-3 py-3 text-center">
-                      {d.entry && <button onClick={e => { e.stopPropagation(); del(d.entry!.id); }} className="text-gray-300 hover:text-red-500 text-[10px]">删除</button>}
+                    <td className="px-5 py-4 text-sm text-gray-400 max-w-[120px] truncate">{d.entry?.remark || ''}</td>
+                    <td className="px-4 py-4 text-center">
+                      {d.entry && <button onClick={e => { e.stopPropagation(); del(d.entry!.id); }} className="text-gray-300 hover:text-red-500 text-xs">删除</button>}
                     </td>
                   </tr>
                 ))}
@@ -210,24 +211,24 @@ export default function PerformancePage() {
                 {report.quarters.map(q => {
                   const rate = q.target > 0 ? Math.round((q.actual / q.target) * 100) : 0;
                   return (
-                    <tr key={q.label} className="bg-gray-50/80 font-medium">
-                      <td className="px-6 py-2.5 text-xs font-bold text-gray-700">{q.label}</td>
-                      <td className="px-4 py-2.5 text-right text-xs font-bold text-blue-600">{fmt(q.target)}</td>
-                      <td className="px-4 py-2.5 text-right text-xs font-bold text-gray-800">{fmt(q.actual)}</td>
-                      <td className="px-4 py-2.5 text-right"><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${rate>=100?'bg-emerald-50 text-emerald-600':rate>=80?'bg-amber-50 text-amber-600':'bg-red-50 text-red-500'}`}>{rate}%</span></td>
-                      <td className="px-4 py-2.5 text-right text-xs text-gray-500">{fmt(q.lastYear)}</td>
-                      <td className="px-4 py-2.5"></td><td className="px-4 py-2.5"></td><td className="px-4 py-2.5"></td><td className="px-3 py-2.5"></td>
+                    <tr key={q.label} className="bg-gray-50/90 font-semibold border-y border-gray-100">
+                      <td className="px-6 py-3 text-base font-bold text-gray-700">{q.label}</td>
+                      <td className="px-5 py-3 text-right text-base font-bold text-blue-600">{fmt(q.target)}</td>
+                      <td className="px-5 py-3 text-right text-base font-bold text-gray-900">{fmt(q.actual)}</td>
+                      <td className="px-5 py-3 text-right"><span className={`inline-block text-sm font-bold px-3 py-1 rounded-full ${rate>=100?'bg-emerald-100 text-emerald-700':rate>=80?'bg-amber-100 text-amber-700':'bg-red-100 text-red-600'}`}>{rate}%</span></td>
+                      <td className="px-5 py-3 text-right text-base text-gray-500">{fmt(q.lastYear)}</td>
+                      <td className="px-5 py-3"></td><td className="px-5 py-3"></td><td className="px-5 py-3"></td><td className="px-4 py-3"></td>
                     </tr>
                   );
                 })}
                 {/* Annual total */}
-                <tr className="bg-gray-100 font-bold">
-                  <td className="px-6 py-3 text-xs text-gray-800">年度合计</td>
-                  <td className="px-4 py-3 text-right text-xs text-blue-600">{fmt(report.annual.target)}</td>
-                  <td className="px-4 py-3 text-right text-xs text-gray-800">{fmt(report.annual.actual)}</td>
-                  <td className="px-4 py-3 text-right"><span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-200 text-gray-700">{report.annual.target>0?Math.round((report.annual.actual/report.annual.target)*100):0}%</span></td>
-                  <td className="px-4 py-3 text-right text-xs">{fmt(report.annual.lastYear)}</td>
-                  <td className="px-4 py-3"></td><td className="px-4 py-3"></td><td className="px-4 py-3"></td><td className="px-3 py-3"></td>
+                <tr className="bg-starbucks-50 font-bold">
+                  <td className="px-6 py-4 text-base font-bold text-starbucks-700">年度合计</td>
+                  <td className="px-5 py-4 text-right text-base font-bold text-blue-700">{fmt(report.annual.target)}</td>
+                  <td className="px-5 py-4 text-right text-lg font-bold text-gray-900">{fmt(report.annual.actual)}</td>
+                  <td className="px-5 py-4 text-right"><span className="inline-block text-sm font-bold px-3 py-1 rounded-full bg-starbucks-100 text-starbucks-700">{report.annual.target>0?Math.round((report.annual.actual/report.annual.target)*100):0}%</span></td>
+                  <td className="px-5 py-4 text-right text-base">{fmt(report.annual.lastYear)}</td>
+                  <td className="px-5 py-4"></td><td className="px-5 py-4"></td><td className="px-5 py-4"></td><td className="px-4 py-4"></td>
                 </tr>
               </tbody>
             </table>
