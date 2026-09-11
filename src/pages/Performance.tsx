@@ -37,7 +37,10 @@ export default function PerformancePage() {
     setModal(false);
   };
 
-  const del = (id: string) => flush(items.filter(i => i.id !== id));
+  const del = async (id: string) => {
+    setItems(items.filter(i => i.id !== id));
+    try { await supabase.from('performance').delete().eq('id', id); } catch {}
+  };
 
   const report = useMemo(() => {
     const months = [...new Set([...items.map(i => i.month), ...ALL_MONTHS])].sort();
@@ -350,7 +353,7 @@ function AddForm({ existing, onSave, onCancel }: { existing: PerformanceRecord[]
       <div><label className={lbl}>备注</label><input value={f.remark} onChange={e => setF({ ...f, remark: e.target.value })} placeholder="备注" className={cls} /></div>
       <div className="flex justify-end gap-3 pt-2">
         <button onClick={onCancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>
-        <button onClick={() => { if (f.target > 0) onSave({ id: existing.find(x => x.month === f.month)?.id || genId(), ...f }); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-sm">保存</button>
+        <button onClick={() => { if (f.target > 0 || f.actual > 0 || f.lastYear > 0) onSave({ id: existing.find(x => x.month === f.month)?.id || genId(), ...f }); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800 shadow-sm">保存</button>
       </div>
     </div>
   );
