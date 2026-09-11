@@ -159,6 +159,56 @@ export default function PerformancePage() {
           </div>
         </div>
 
+        {/* Quarterly achievement */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+          <h3 className="text-base font-bold text-gray-800 mb-5">季度达成</h3>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Quarter cards */}
+            <div className="grid grid-cols-2 gap-3">
+              {report.quarters.map(q => {
+                const rate = q.target > 0 ? Math.round((q.actual / q.target) * 100) : 0;
+                const rateColor = rate >= 100 ? 'text-emerald-600' : rate >= 80 ? 'text-amber-600' : 'text-red-500';
+                const bg = rate >= 100 ? 'bg-emerald-50' : rate >= 80 ? 'bg-amber-50' : 'bg-red-50';
+                return (
+                  <div key={q.label} className="rounded-2xl border border-gray-100 p-4 hover:shadow-md transition-shadow">
+                    <p className="text-sm font-bold text-gray-700 mb-3">{q.label}</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">目标</span>
+                        <span className="font-bold text-gray-800">{fmt(q.target)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">实际</span>
+                        <span className="font-bold text-gray-800">{fmt(q.actual)}</span>
+                      </div>
+                      <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${bg}`}>
+                        <span className="text-xs text-gray-500">达成率</span>
+                        <span className={`text-lg font-bold ${rateColor}`}>{q.target > 0 ? rate + '%' : '—'}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Quarter chart */}
+            <div>
+              {report.quarters.some(q => q.target > 0 || q.actual > 0) ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={report.quarters}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f5f5f5" />
+                    <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => (v/10000).toFixed(0)+'万'} />
+                    <Tooltip formatter={(v: any) => Number(v).toLocaleString()} />
+                    <Legend wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="target" fill="#93c5fd" name="目标" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="actual" fill="#00704A" name="实际" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : <div className="text-xs text-gray-300 text-center py-16">暂无季度数据</div>}
+            </div>
+          </div>
+        </div>
+
         {/* Monthly table */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-50 flex items-center justify-between">
