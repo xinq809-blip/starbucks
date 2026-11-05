@@ -15,8 +15,7 @@ export interface DistributorDistribution {
   distributorName: string; // 分销商名称
   quantity: number;        // 发货数量
   downstreamCount: number; // 下游客户数量
-  podCount: number;        // 下游POD数
-  coverage: number;        // 目前覆盖数量
+  outletCount: number;     // 网点数（销售终端/POD，合并概念）
   strength: '强' | '中' | '弱'; // 实力评级
   remark: string;
 }
@@ -27,16 +26,18 @@ export interface MarketPlan {
   productId: string;
   /** 计划标题 */
   title: string;
+  /** 重点区域 */
+  keyRegion: string;
   /** 市场策略（怎么做） */
   strategy: string;
+  /** 推广方式 */
+  promotionMethod: string;
   /** 目标分销商数 */
   targetDistributor: number;
   /** 每月新增分销商 */
   monthlyNewDistributor: number;
-  /** 目标覆盖网点数 */
-  targetCoverage: number;
-  /** 目标POD数 */
-  targetPod: number;
+  /** 目标网点数（合并POD概念） */
+  targetOutlet: number;
   /** 目标销量(件) */
   targetSales: number;
   /** 开始时间 */

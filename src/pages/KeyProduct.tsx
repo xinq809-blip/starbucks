@@ -121,12 +121,11 @@ export default function KeyProductPage() {
   const filteredDist = filter === 'all' ? distributions : distributions.filter(d => d.productId === filter);
   const distSummary = useMemo(() => {
     const qty = filteredDist.reduce((s, d) => s + (d.quantity || 0), 0);
-    const pod = filteredDist.reduce((s, d) => s + (d.podCount || 0), 0);
-    const cov = filteredDist.reduce((s, d) => s + (d.coverage || 0), 0);
+    const outlet = filteredDist.reduce((s, d) => s + (d.outletCount || 0), 0);
     const strong = filteredDist.filter(d => d.strength === '强').length;
     const mid = filteredDist.filter(d => d.strength === '中').length;
     const weak = filteredDist.filter(d => d.strength === '弱').length;
-    return { qty, pod, cov, strong, mid, weak };
+    return { qty, outlet, strong, mid, weak };
   }, [filteredDist]);
 
   const filteredPlans = filter === 'all' ? plans : plans.filter(p => p.productId === filter);
@@ -234,11 +233,10 @@ export default function KeyProductPage() {
         {/* ====== Tab 2: 分销明细 ====== */}
         {tab === 'distribution' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[
                 { label: '发货总量', v: distSummary.qty, unit: '件', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                { label: '下游POD', v: distSummary.pod, unit: '个', icon: Store, color: 'text-amber-600', bg: 'bg-amber-50' },
-                { label: '总覆盖', v: distSummary.cov, unit: '家', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: '网点总数', v: distSummary.outlet, unit: '家', icon: Store, color: 'text-amber-600', bg: 'bg-amber-50' },
                 { label: '强实力', v: distSummary.strong, unit: '家', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
                 { label: '中/弱', v: distSummary.mid + '/' + distSummary.weak, unit: '家', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
               ].map(c => (
@@ -262,11 +260,11 @@ export default function KeyProductPage() {
                   <thead><tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-500">
                     <th className="text-left px-5 py-3">单品</th><th className="text-left px-3 py-3">分销商</th>
                     <th className="text-right px-3 py-3">发货量</th><th className="text-right px-3 py-3">下游客户</th>
-                    <th className="text-right px-3 py-3">POD数</th><th className="text-right px-3 py-3">覆盖</th>
+                    <th className="text-right px-3 py-3">网点数</th>
                     <th className="text-center px-3 py-3">实力</th><th className="text-center px-3 py-3 w-16">操作</th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filteredDist.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-gray-400">暂无分销明细</td></tr> :
+                    {filteredDist.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-gray-400">暂无分销明细</td></tr> :
                       filteredDist.map(d => {
                         const p = productById(d.productId);
                         return (
@@ -275,8 +273,7 @@ export default function KeyProductPage() {
                             <td className="px-3 py-3 text-gray-700 font-medium">{d.distributorName}</td>
                             <td className="px-3 py-3 text-right font-bold text-emerald-600">{d.quantity.toLocaleString()}</td>
                             <td className="px-3 py-3 text-right text-gray-600">{d.downstreamCount.toLocaleString()}</td>
-                            <td className="px-3 py-3 text-right text-gray-600">{d.podCount.toLocaleString()}</td>
-                            <td className="px-3 py-3 text-right text-gray-600">{d.coverage.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{d.outletCount.toLocaleString()}</td>
                             <td className="px-3 py-3 text-center"><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STRENGTH_MAP[d.strength] || STRENGTH_MAP['中']}`}>{d.strength}</span></td>
                             <td className="px-3 py-3 text-center"><div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100">
                               <button onClick={() => { setEditingDist(d); setDistModal(true); }} className="p-1.5 text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
@@ -330,12 +327,17 @@ export default function KeyProductPage() {
                       <div className="grid grid-cols-2 gap-2 mb-3">
                         {pl.targetDistributor > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-gray-800">{pl.targetDistributor}</p><p className="text-[10px] text-gray-400">目标分销商</p></div>}
                         {pl.monthlyNewDistributor > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-blue-600">{pl.monthlyNewDistributor}</p><p className="text-[10px] text-gray-400">每月新增</p></div>}
-                        {pl.targetCoverage > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-emerald-600">{pl.targetCoverage}</p><p className="text-[10px] text-gray-400">目标网点</p></div>}
-                        {pl.targetPod > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-amber-600">{pl.targetPod}</p><p className="text-[10px] text-gray-400">目标POD</p></div>}
+                        {pl.targetOutlet > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-emerald-600">{pl.targetOutlet}</p><p className="text-[10px] text-gray-400">目标网点</p></div>}
                         {pl.targetSales > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-violet-600">{pl.targetSales}</p><p className="text-[10px] text-gray-400">目标销量</p></div>}
                         {pl.budget > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-red-500">¥{pl.budget.toLocaleString()}</p><p className="text-[10px] text-gray-400">预算</p></div>}
                       </div>
 
+                      {pl.keyRegion && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1.5"><MapPin size={13} className="text-blue-500" />重点区域：{pl.keyRegion}</div>
+                      )}
+                      {pl.promotionMethod && (
+                        <div className="flex items-center gap-1.5 text-xs text-gray-600 mb-1.5"><Target size={13} className="text-starbucks-500" />推广方式：{pl.promotionMethod}</div>
+                      )}
                       {pl.strategy && (
                         <div className="bg-starbucks-50/50 rounded-lg p-3 mb-2">
                           <p className="text-xs text-gray-700 leading-relaxed">{pl.strategy}</p>
@@ -458,17 +460,16 @@ function OverviewForm({ init, productList, onSave, onCancel }: { init: ProductOv
 }
 
 function DistForm({ init, productList, onSave, onCancel }: { init: DistributorDistribution | null; productList: KeyProduct[]; onSave: (d: DistributorDistribution) => void; onCancel: () => void }) {
-  const [f, setF] = useState(init || { id: genId('PD'), productId: productList[0]?.id || 'p11', distributorName: '', quantity: 0, downstreamCount: 0, podCount: 0, coverage: 0, strength: '中' as const, remark: '' });
+  const [f, setF] = useState(init || { id: genId('PD'), productId: productList[0]?.id || 'p11', distributorName: '', quantity: 0, downstreamCount: 0, outletCount: 0, strength: '中' as const, remark: '' });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
   return (
     <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
       <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
       <div><label className={lbl}>分销商名称 *</label><input value={f.distributorName} onChange={e => set('distributorName', e.target.value)} placeholder="如：山海关梁波" className={cls} /></div>
       <div><label className={lbl}>发货数量</label><input type="number" min="0" value={f.quantity > 0 ? f.quantity : ''} onChange={e => set('quantity', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div><label className={lbl}>下游客户数</label><input type="number" min="0" value={f.downstreamCount > 0 ? f.downstreamCount : ''} onChange={e => set('downstreamCount', parseInt(e.target.value) || 0)} className={cls} /></div>
-        <div><label className={lbl}>POD数</label><input type="number" min="0" value={f.podCount > 0 ? f.podCount : ''} onChange={e => set('podCount', parseInt(e.target.value) || 0)} className={cls} /></div>
-        <div><label className={lbl}>覆盖数</label><input type="number" min="0" value={f.coverage > 0 ? f.coverage : ''} onChange={e => set('coverage', parseInt(e.target.value) || 0)} className={cls} /></div>
+        <div><label className={lbl}>网点数</label><input type="number" min="0" value={f.outletCount > 0 ? f.outletCount : ''} onChange={e => set('outletCount', parseInt(e.target.value) || 0)} placeholder="销售终端/POD" className={cls} /></div>
       </div>
       <div><label className={lbl}>分销商实力</label>
         <div className="grid grid-cols-3 gap-2">
@@ -488,20 +489,20 @@ function DistForm({ init, productList, onSave, onCancel }: { init: DistributorDi
 }
 
 function PlanForm({ init, productList, onSave, onCancel }: { init: MarketPlan | null; productList: KeyProduct[]; onSave: (d: MarketPlan) => void; onCancel: () => void }) {
-  const [f, setF] = useState(init || { id: genId('PL'), productId: productList[0]?.id || 'p11', title: '', strategy: '', targetDistributor: 0, monthlyNewDistributor: 0, targetCoverage: 0, targetPod: 0, targetSales: 0, startDate: '', endDate: '', budget: 0, remark: '' });
+  const [f, setF] = useState(init || { id: genId('PL'), productId: productList[0]?.id || 'p11', title: '', keyRegion: '', strategy: '', promotionMethod: '', targetDistributor: 0, monthlyNewDistributor: 0, targetOutlet: 0, targetSales: 0, startDate: '', endDate: '', budget: 0, remark: '' });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
   return (
     <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
       <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
       <div><label className={lbl}>计划标题</label><input value={f.title} onChange={e => set('title', e.target.value)} placeholder="如：P450黑咖啡 唐山区域铺货计划" className={cls} /></div>
+      <div><label className={lbl}>重点区域</label><input value={f.keyRegion} onChange={e => set('keyRegion', e.target.value)} placeholder="如：唐山、秦皇岛、石家庄" className={cls} /></div>
 
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs font-bold text-gray-600 mb-2">目标指标</p>
         <div className="grid grid-cols-2 gap-3">
           <div><label className={lbl}>目标分销商数</label><input type="number" min="0" value={f.targetDistributor > 0 ? f.targetDistributor : ''} onChange={e => set('targetDistributor', parseInt(e.target.value) || 0)} placeholder="家" className={cls} /></div>
           <div><label className={lbl}>每月新增分销商</label><input type="number" min="0" value={f.monthlyNewDistributor > 0 ? f.monthlyNewDistributor : ''} onChange={e => set('monthlyNewDistributor', parseInt(e.target.value) || 0)} placeholder="家/月" className={cls} /></div>
-          <div><label className={lbl}>目标覆盖网点</label><input type="number" min="0" value={f.targetCoverage > 0 ? f.targetCoverage : ''} onChange={e => set('targetCoverage', parseInt(e.target.value) || 0)} placeholder="家" className={cls} /></div>
-          <div><label className={lbl}>目标POD数</label><input type="number" min="0" value={f.targetPod > 0 ? f.targetPod : ''} onChange={e => set('targetPod', parseInt(e.target.value) || 0)} placeholder="个" className={cls} /></div>
+          <div><label className={lbl}>目标网点数</label><input type="number" min="0" value={f.targetOutlet > 0 ? f.targetOutlet : ''} onChange={e => set('targetOutlet', parseInt(e.target.value) || 0)} placeholder="家" className={cls} /></div>
           <div><label className={lbl}>目标销量</label><input type="number" min="0" value={f.targetSales > 0 ? f.targetSales : ''} onChange={e => set('targetSales', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
           <div><label className={lbl}>费用预算</label><input type="number" min="0" value={f.budget > 0 ? f.budget : ''} onChange={e => set('budget', parseInt(e.target.value) || 0)} placeholder="元" className={cls} /></div>
         </div>
@@ -509,7 +510,8 @@ function PlanForm({ init, productList, onSave, onCancel }: { init: MarketPlan | 
 
       <div className="border-t border-gray-100 pt-3">
         <p className="text-xs font-bold text-gray-600 mb-2">市场策略</p>
-        <div><label className={lbl}>怎么做</label><textarea value={f.strategy} onChange={e => set('strategy', e.target.value)} placeholder="如：进驻XX商超系统、联合经销商做终端陈列、做品鉴推广活动..." rows={3} className={cls} /></div>
+        <div><label className={lbl}>推广方式</label><input value={f.promotionMethod} onChange={e => set('promotionMethod', e.target.value)} placeholder="如：终端陈列+品鉴活动+买赠促销" className={cls} /></div>
+        <div className="mt-3"><label className={lbl}>怎么做</label><textarea value={f.strategy} onChange={e => set('strategy', e.target.value)} placeholder="如：进驻XX商超系统、联合经销商做终端陈列、做品鉴推广活动..." rows={3} className={cls} /></div>
       </div>
 
       <div className="border-t border-gray-100 pt-3">
