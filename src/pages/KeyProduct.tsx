@@ -1,99 +1,137 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Plus, Trash2, Pencil, X, Package, TrendingUp, Store, Target, Settings2 } from 'lucide-react';
+import { Plus, Trash2, Pencil, X, Package, TrendingUp, Store, Target, Settings2, Users, MapPin, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import type { KeyProductRecord } from '../types/keyproduct';
+import type { ProductOverview, DistributorDistribution, MarketPlan } from '../types/keyproduct';
 
 function genId(p: string) { return p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 interface KeyProduct { id: string; name: string; color: string; }
-
 const COLOR_PALETTE = ['#1e293b', '#059669', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#f97316', '#6366f1'];
-
 const DEFAULT_PRODUCTS: KeyProduct[] = [
   { id: 'p11', name: 'P450 黑咖啡', color: '#1e293b' },
   { id: 'p20', name: 'P270 椰椰拿铁', color: '#059669' },
 ];
 
-const emptyForm = {
-  productId: 'p11', date: new Date().toISOString().slice(0, 10), restockQty: 0, stockQty: 0,
-  distributeQty: 0, customerName: '', customerPod: 0, coverage: 0, futurePlan: '', remark: ''
-};
+type Tab = 'overview' | 'distribution' | 'plan';
 
 export default function KeyProductPage() {
-  const [items, setItems] = useState<KeyProductRecord[]>([]);
+  const [tab, setTab] = useState<Tab>('overview');
   const [productList, setProductList] = useState<KeyProduct[]>(DEFAULT_PRODUCTS);
+  const [overviews, setOverviews] = useState<ProductOverview[]>([]);
+  const [distributions, setDistributions] = useState<DistributorDistribution[]>([]);
+  const [plans, setPlans] = useState<MarketPlan[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [filter, setFilter] = useState<string>('all');
-  const [modal, setModal] = useState(false);
-  const [editing, setEditing] = useState<KeyProductRecord | null>(null);
+
+  // modals
+  const [overviewModal, setOverviewModal] = useState(false);
+  const [distModal, setDistModal] = useState(false);
+  const [planModal, setPlanModal] = useState(false);
   const [productModal, setProductModal] = useState(false);
+  const [editingOverview, setEditingOverview] = useState<ProductOverview | null>(null);
+  const [editingDist, setEditingDist] = useState<DistributorDistribution | null>(null);
+  const [editingPlan, setEditingPlan] = useState<MarketPlan | null>(null);
   const [newProductName, setNewProductName] = useState('');
 
   const productById = (id: string) => productList.find(p => p.id === id);
 
-  // 加载记录 + 单品列表
   useEffect(() => {
     Promise.all([
       supabase.from('key_products').select('*'),
       supabase.from('key_products_list').select('*'),
-    ]).then(([recRes, listRes]) => {
-      setItems((recRes.data || []).map((row: any) => row.data));
+      supabase.from('key_distribution').select('*'),
+      supabase.from('key_market_plan').select('*'),
+    ]).then(([ovRes, listRes, distRes, planRes]) => {
+      setOverviews((ovRes.data || []).map((row: any) => row.data));
+      setDistributions((distRes.data || []).map((row: any) => row.data));
+      setPlans((planRes.data || []).map((row: any) => row.data));
       const list = (listRes.data || []).map((row: any) => row.data);
       if (list.length > 0) setProductList(list);
       setLoaded(true);
     });
   }, []);
 
-  const flushRecords = (data: KeyProductRecord[]) => {
-    setItems(data);
-    if (loaded) supabase.from('key_products').upsert(data.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
-  };
+  // 保存到 Supabase
+  useEffect(() => {
+    if (!loaded) return;
+    supabase.from('key_products').upsert(overviews.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
+  }, [overviews, loaded]);
+  useEffect(() => {
+    if (!loaded) return;
+    supabase.from('key_distribution').upsert(distributions.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
+  }, [distributions, loaded]);
+  useEffect(() => {
+    if (!loaded) return;
+    supabase.from('key_market_plan').upsert(plans.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
+  }, [plans, loaded]);
+  useEffect(() => {
+    if (!loaded) return;
+    supabase.from('key_products_list').upsert(productList.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
+  }, [productList, loaded]);
 
-  const flushProducts = (data: KeyProduct[]) => {
-    setProductList(data);
-    if (loaded) supabase.from('key_products_list').upsert(data.map(d => ({ id: d.id, data: d })), { onConflict: 'id' }).then(() => {});
+  const saveOverview = (d: ProductOverview) => {
+    setOverviews(prev => prev.find(i => i.id === d.id) ? prev.map(i => i.id === d.id ? d : i) : [...prev, d]);
+    setOverviewModal(false); setEditingOverview(null);
   };
-
-  const save = (d: KeyProductRecord) => {
-    flushRecords(items.find(i => i.id === d.id) ? items.map(i => i.id === d.id ? d : i) : [...items, d]);
-    setModal(false); setEditing(null);
-  };
-
-  const del = async (id: string) => {
-    if (!confirm('确认删除这条记录？')) return;
-    setItems(items.filter(i => i.id !== id));
+  const delOverview = async (id: string) => {
+    setOverviews(overviews.filter(i => i.id !== id));
     try { await supabase.from('key_products').delete().eq('id', id); } catch {}
+  };
+
+  const saveDist = (d: DistributorDistribution) => {
+    setDistributions(prev => prev.find(i => i.id === d.id) ? prev.map(i => i.id === d.id ? d : i) : [...prev, d]);
+    setDistModal(false); setEditingDist(null);
+  };
+  const delDist = async (id: string) => {
+    setDistributions(distributions.filter(i => i.id !== id));
+    try { await supabase.from('key_distribution').delete().eq('id', id); } catch {}
+  };
+
+  const savePlan = (d: MarketPlan) => {
+    setPlans(prev => prev.find(i => i.id === d.id) ? prev.map(i => i.id === d.id ? d : i) : [...prev, d]);
+    setPlanModal(false); setEditingPlan(null);
+  };
+  const delPlan = async (id: string) => {
+    setPlans(plans.filter(i => i.id !== id));
+    try { await supabase.from('key_market_plan').delete().eq('id', id); } catch {}
   };
 
   const addProduct = () => {
     const name = newProductName.trim();
     if (!name) return;
-    const newProduct: KeyProduct = { id: genId('PP'), name, color: COLOR_PALETTE[productList.length % COLOR_PALETTE.length] };
-    flushProducts([...productList, newProduct]);
-    setNewProductName('');
-    setProductModal(false);
+    const p: KeyProduct = { id: genId('PP'), name, color: COLOR_PALETTE[productList.length % COLOR_PALETTE.length] };
+    setProductList([...productList, p]);
+    setNewProductName(''); setProductModal(false);
   };
-
   const delProduct = async (id: string) => {
-    if (!confirm('确认删除该单品？相关记录会保留但单品不可再选')) return;
-    flushProducts(productList.filter(p => p.id !== id));
+    if (!confirm('确认删除该单品？')) return;
+    setProductList(productList.filter(p => p.id !== id));
     try { await supabase.from('key_products_list').delete().eq('id', id); } catch {}
   };
 
-  const filtered = useMemo(() => {
-    if (filter === 'all') return items;
-    return items.filter(i => i.productId === filter);
-  }, [items, filter]);
+  // 筛选后的总览
+  const filteredOverview = filter === 'all' ? overviews : overviews.filter(o => o.productId === filter);
+  const overviewSummary = useMemo(() => {
+    const restock = filteredOverview.reduce((s, o) => s + (o.restockQty || 0), 0);
+    const stock = filteredOverview.reduce((s, o) => s + (o.stockQty || 0), 0);
+    const dist = filteredOverview.reduce((s, o) => s + (o.distributeQty || 0), 0);
+    return { restock, stock, dist, rate: restock > 0 ? Math.round((dist / restock) * 100) : 0 };
+  }, [filteredOverview]);
 
-  const summary = useMemo(() => {
-    const list = filter === 'all' ? items : items.filter(i => i.productId === filter);
-    const totalRestock = list.reduce((s, i) => s + (i.restockQty || 0), 0);
-    const totalStock = list.reduce((s, i) => s + (i.stockQty || 0), 0);
-    const totalDistribute = list.reduce((s, i) => s + (i.distributeQty || 0), 0);
-    const totalPod = list.reduce((s, i) => s + (i.customerPod || 0), 0);
-    const distRate = totalRestock > 0 ? Math.round((totalDistribute / totalRestock) * 100) : 0;
-    return { totalRestock, totalStock, totalDistribute, totalPod, distRate, count: list.length };
-  }, [items, filter]);
+  const filteredDist = filter === 'all' ? distributions : distributions.filter(d => d.productId === filter);
+  const distSummary = useMemo(() => {
+    const qty = filteredDist.reduce((s, d) => s + (d.quantity || 0), 0);
+    const pod = filteredDist.reduce((s, d) => s + (d.podCount || 0), 0);
+    const cov = filteredDist.reduce((s, d) => s + (d.coverage || 0), 0);
+    const strong = filteredDist.filter(d => d.strength === '强').length;
+    const mid = filteredDist.filter(d => d.strength === '中').length;
+    const weak = filteredDist.filter(d => d.strength === '弱').length;
+    return { qty, pod, cov, strong, mid, weak };
+  }, [filteredDist]);
+
+  const filteredPlans = filter === 'all' ? plans : plans.filter(p => p.productId === filter);
+
+  const STRENGTH_MAP: Record<string, string> = { '强': 'bg-emerald-50 text-emerald-600', '中': 'bg-amber-50 text-amber-600', '弱': 'bg-gray-100 text-gray-500' };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -102,122 +140,225 @@ export default function KeyProductPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800">重点单品追踪</h1>
-            <p className="text-sm text-gray-400 mt-0.5">单品分销明细与覆盖</p>
+            <p className="text-sm text-gray-400 mt-0.5">单品总览 · 分销明细 · 市场计划</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setProductModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50">
-              <Settings2 size={16} />管理单品
-            </button>
-            <button onClick={() => { setEditing(null); setModal(true); }}
-              className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
-              <Plus size={16} />录入数据
-            </button>
-          </div>
+          <button onClick={() => setProductModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-50">
+            <Settings2 size={16} />管理单品
+          </button>
         </div>
 
-        {/* 单品筛选 */}
-        <div className="flex gap-2 flex-wrap">
+        {/* 单品筛选 + Tab */}
+        <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => setFilter('all')}
-            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === 'all' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500'}`}>
-            全部
-          </button>
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium ${filter === 'all' ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500'}`}>全部</button>
           {productList.map(p => (
             <button key={p.id} onClick={() => setFilter(p.id)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${filter === p.id ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500'}`}>
-              <span className="w-2 h-2 rounded-full inline-block mr-1.5" style={{ backgroundColor: p.color }} />{p.name}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium ${filter === p.id ? 'bg-gray-900 text-white' : 'bg-white border border-gray-200 text-gray-500'}`}>
+              <span className="w-2 h-2 rounded-full inline-block mr-1" style={{ backgroundColor: p.color }} />{p.name}
             </button>
           ))}
-        </div>
-
-        {/* 汇总卡片 */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          {[
-            { label: '进货总量', v: summary.totalRestock, unit: '件', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: '库存总量', v: summary.totalStock, unit: '件', icon: Package, color: 'text-violet-600', bg: 'bg-violet-50' },
-            { label: '分销总量', v: summary.totalDistribute, unit: '件', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-            { label: '分销率', v: summary.distRate + '%', unit: '', icon: Target, color: 'text-starbucks-600', bg: 'bg-starbucks-50' },
-            { label: '下游POD', v: summary.totalPod, unit: '个', icon: Store, color: 'text-amber-600', bg: 'bg-amber-50' },
-          ].map(c => (
-            <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-500">{c.label}</span>
-                <div className={`p-1.5 rounded-lg ${c.bg}`}><c.icon size={15} className={c.color} /></div>
-              </div>
-              <div className="text-2xl font-bold text-gray-800">{c.v.toLocaleString()}{c.unit && <span className="text-sm font-normal text-gray-400 ml-1">{c.unit}</span>}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* 表格 */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-500">
-                  <th className="text-left px-5 py-3 font-medium">单品</th>
-                  <th className="text-left px-3 py-3 font-medium">日期</th>
-                  <th className="text-left px-3 py-3 font-medium">下游客户</th>
-                  <th className="text-right px-3 py-3 font-medium">进货</th>
-                  <th className="text-right px-3 py-3 font-medium">库存</th>
-                  <th className="text-right px-3 py-3 font-medium">分销</th>
-                  <th className="text-right px-3 py-3 font-medium">POD数</th>
-                  <th className="text-right px-3 py-3 font-medium">覆盖</th>
-                  <th className="text-left px-3 py-3 font-medium">后期计划</th>
-                  <th className="text-center px-3 py-3 font-medium w-16">操作</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={10} className="text-center py-12 text-gray-400">暂无数据，点击右上角「录入数据」</td></tr>
-                ) : (
-                  filtered.map(i => {
-                    const p = productById(i.productId);
-                    return (
-                      <tr key={i.id} className="hover:bg-gray-50/30 group">
-                        <td className="px-5 py-3">
-                          <span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: p?.color || '#666' }}>
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p?.color || '#666' }} />{p?.name || i.productId}
-                          </span>
-                        </td>
-                        <td className="px-3 py-3 text-gray-500">{i.date}</td>
-                        <td className="px-3 py-3 text-gray-700 font-medium max-w-[120px] truncate">{i.customerName || '—'}</td>
-                        <td className="px-3 py-3 text-right text-gray-600">{i.restockQty > 0 ? i.restockQty.toLocaleString() : '—'}</td>
-                        <td className="px-3 py-3 text-right text-gray-600">{i.stockQty > 0 ? i.stockQty.toLocaleString() : '—'}</td>
-                        <td className="px-3 py-3 text-right font-bold text-emerald-600">{i.distributeQty > 0 ? i.distributeQty.toLocaleString() : '—'}</td>
-                        <td className="px-3 py-3 text-right text-gray-600">{i.customerPod > 0 ? i.customerPod.toLocaleString() : '—'}</td>
-                        <td className="px-3 py-3 text-right text-gray-600">{i.coverage > 0 ? i.coverage.toLocaleString() : '—'}</td>
-                        <td className="px-3 py-3 text-gray-400 max-w-[140px] truncate">{i.futurePlan || '—'}</td>
-                        <td className="px-3 py-3 text-center">
-                          <div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => { setEditing(i); setModal(true); }} className="p-1.5 text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
-                            <button onClick={() => del(i.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
+          <div className="flex-1" />
+          <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+            {([
+              ['overview', '单品总览'],
+              ['distribution', '分销明细'],
+              ['plan', '市场计划'],
+            ] as [Tab, string][]).map(([t, label]) => (
+              <button key={t} onClick={() => setTab(t)}
+                className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${tab === t ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500'}`}>{label}</button>
+            ))}
           </div>
         </div>
 
-        {/* 录入数据 Modal */}
-        {modal && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setModal(false); setEditing(null); }} />
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                <h3 className="text-sm font-semibold text-gray-800">{editing ? '编辑记录' : '录入数据'}</h3>
-                <button onClick={() => { setModal(false); setEditing(null); }} className="p-1.5 rounded-full hover:bg-gray-200"><X size={16} className="text-gray-400" /></button>
-              </div>
-              <KeyProductForm init={editing} productList={productList} onSave={save} onCancel={() => { setModal(false); setEditing(null); }} />
+        {/* ====== Tab 1: 单品总览 ====== */}
+        {tab === 'overview' && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: '进货总量', v: overviewSummary.restock, unit: '件', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: '库存总量', v: overviewSummary.stock, unit: '件', icon: Package, color: 'text-violet-600', bg: 'bg-violet-50' },
+                { label: '分销总量', v: overviewSummary.dist, unit: '件', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '分销率', v: overviewSummary.rate + '%', unit: '', icon: Target, color: 'text-starbucks-600', bg: 'bg-starbucks-50' },
+              ].map(c => (
+                <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500">{c.label}</span><div className={`p-1.5 rounded-lg ${c.bg}`}><c.icon size={15} className={c.color} /></div></div>
+                  <div className="text-2xl font-bold text-gray-800">{c.v.toLocaleString()}{c.unit && <span className="text-sm font-normal text-gray-400 ml-1">{c.unit}</span>}</div>
+                </div>
+              ))}
             </div>
-          </div>
+
+            <div className="flex justify-end">
+              <button onClick={() => { setEditingOverview(null); setOverviewModal(true); }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
+                <Plus size={16} />录入整体数据
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-500">
+                    <th className="text-left px-5 py-3">单品</th><th className="text-left px-3 py-3">日期</th>
+                    <th className="text-right px-3 py-3">进货</th><th className="text-right px-3 py-3">库存</th>
+                    <th className="text-right px-3 py-3">分销</th><th className="text-right px-3 py-3">分销率</th>
+                    <th className="text-center px-3 py-3 w-16">操作</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredOverview.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-gray-400">暂无整体数据</td></tr> :
+                      filteredOverview.map(o => {
+                        const p = productById(o.productId);
+                        const rate = o.restockQty > 0 ? Math.round((o.distributeQty / o.restockQty) * 100) : 0;
+                        return (
+                          <tr key={o.id} className="hover:bg-gray-50/30 group">
+                            <td className="px-5 py-3"><span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: p?.color }}><span className="w-2 h-2 rounded-full" style={{ backgroundColor: p?.color }} />{p?.name || o.productId}</span></td>
+                            <td className="px-3 py-3 text-gray-500">{o.date}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{o.restockQty.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{o.stockQty.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right font-bold text-emerald-600">{o.distributeQty.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right font-bold text-gray-800">{rate}%</td>
+                            <td className="px-3 py-3 text-center"><div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100">
+                              <button onClick={() => { setEditingOverview(o); setOverviewModal(true); }} className="p-1.5 text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
+                              <button onClick={() => delOverview(o.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                            </div></td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
         )}
 
-        {/* 管理单品 Modal */}
+        {/* ====== Tab 2: 分销明细 ====== */}
+        {tab === 'distribution' && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: '发货总量', v: distSummary.qty, unit: '件', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '下游POD', v: distSummary.pod, unit: '个', icon: Store, color: 'text-amber-600', bg: 'bg-amber-50' },
+                { label: '总覆盖', v: distSummary.cov, unit: '家', icon: MapPin, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { label: '强实力', v: distSummary.strong, unit: '家', icon: Users, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '中/弱', v: distSummary.mid + '/' + distSummary.weak, unit: '家', icon: Users, color: 'text-amber-600', bg: 'bg-amber-50' },
+              ].map(c => (
+                <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-2"><span className="text-xs text-gray-500">{c.label}</span><div className={`p-1.5 rounded-lg ${c.bg}`}><c.icon size={15} className={c.color} /></div></div>
+                  <div className="text-2xl font-bold text-gray-800">{c.v.toLocaleString()}{c.unit && <span className="text-sm font-normal text-gray-400 ml-1">{c.unit}</span>}</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-end">
+              <button onClick={() => { setEditingDist(null); setDistModal(true); }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
+                <Plus size={16} />录入分销明细
+              </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-500">
+                    <th className="text-left px-5 py-3">单品</th><th className="text-left px-3 py-3">分销商</th>
+                    <th className="text-right px-3 py-3">发货量</th><th className="text-right px-3 py-3">下游客户</th>
+                    <th className="text-right px-3 py-3">POD数</th><th className="text-right px-3 py-3">覆盖</th>
+                    <th className="text-center px-3 py-3">实力</th><th className="text-center px-3 py-3 w-16">操作</th>
+                  </tr></thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filteredDist.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-gray-400">暂无分销明细</td></tr> :
+                      filteredDist.map(d => {
+                        const p = productById(d.productId);
+                        return (
+                          <tr key={d.id} className="hover:bg-gray-50/30 group">
+                            <td className="px-5 py-3"><span className="inline-flex items-center gap-1.5 text-xs font-bold" style={{ color: p?.color }}><span className="w-2 h-2 rounded-full" style={{ backgroundColor: p?.color }} />{p?.name || d.productId}</span></td>
+                            <td className="px-3 py-3 text-gray-700 font-medium">{d.distributorName}</td>
+                            <td className="px-3 py-3 text-right font-bold text-emerald-600">{d.quantity.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{d.downstreamCount.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{d.podCount.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{d.coverage.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-center"><span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STRENGTH_MAP[d.strength] || STRENGTH_MAP['中']}`}>{d.strength}</span></td>
+                            <td className="px-3 py-3 text-center"><div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100">
+                              <button onClick={() => { setEditingDist(d); setDistModal(true); }} className="p-1.5 text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
+                              <button onClick={() => delDist(d.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                            </div></td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ====== Tab 3: 市场计划 ====== */}
+        {tab === 'plan' && (
+          <>
+            <div className="flex justify-end">
+              <button onClick={() => { setEditingPlan(null); setPlanModal(true); }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">
+                <Plus size={16} />新增市场计划
+              </button>
+            </div>
+
+            {filteredPlans.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm py-16 text-center">
+                <ClipboardList size={28} className="text-gray-300 mx-auto mb-3" />
+                <p className="text-sm text-gray-400">暂无市场计划</p>
+                <p className="text-xs text-gray-300 mt-1">记录每个单品在市场上怎么做</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filteredPlans.map(pl => {
+                  const p = productById(pl.productId);
+                  return (
+                    <div key={pl.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 group">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: p?.color }}>
+                          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p?.color }} />{p?.name || pl.productId}
+                        </span>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100">
+                          <button onClick={() => { setEditingPlan(pl); setPlanModal(true); }} className="p-1.5 text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
+                          <button onClick={() => delPlan(pl.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{pl.plan}</p>
+                      <div className="mt-3 flex items-center gap-4 text-xs">
+                        {pl.target && <span className="flex items-center gap-1 text-starbucks-600"><Target size={13} />目标：{pl.target}</span>}
+                        {pl.timeline && <span className="text-gray-500">时间：{pl.timeline}</span>}
+                      </div>
+                      {pl.remark && <p className="mt-2 text-xs text-gray-400">{pl.remark}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* ====== 单品总览 Form ====== */}
+        {overviewModal && (
+          <Modal title={editingOverview ? '编辑整体数据' : '录入整体数据'} onClose={() => { setOverviewModal(false); setEditingOverview(null); }}>
+            <OverviewForm init={editingOverview} productList={productList} onSave={saveOverview} onCancel={() => { setOverviewModal(false); setEditingOverview(null); }} />
+          </Modal>
+        )}
+
+        {/* ====== 分销明细 Form ====== */}
+        {distModal && (
+          <Modal title={editingDist ? '编辑分销明细' : '录入分销明细'} onClose={() => { setDistModal(false); setEditingDist(null); }}>
+            <DistForm init={editingDist} productList={productList} onSave={saveDist} onCancel={() => { setDistModal(false); setEditingDist(null); }} />
+          </Modal>
+        )}
+
+        {/* ====== 市场计划 Form ====== */}
+        {planModal && (
+          <Modal title={editingPlan ? '编辑市场计划' : '新增市场计划'} onClose={() => { setPlanModal(false); setEditingPlan(null); }}>
+            <PlanForm init={editingPlan} productList={productList} onSave={savePlan} onCancel={() => { setPlanModal(false); setEditingPlan(null); }} />
+          </Modal>
+        )}
+
+        {/* ====== 管理单品 Modal ====== */}
         {productModal && (
           <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh] p-4">
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setProductModal(false)} />
@@ -228,15 +369,13 @@ export default function KeyProductPage() {
               </div>
               <div className="p-5 space-y-4">
                 <div className="flex gap-2">
-                  <input value={newProductName} onChange={e => setNewProductName(e.target.value)} placeholder="新单品名称，如：P200 榛果味拿铁" className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-gray-400" onKeyDown={e => e.key === 'Enter' && addProduct()} />
+                  <input value={newProductName} onChange={e => setNewProductName(e.target.value)} placeholder="新单品名称" className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none" onKeyDown={e => e.key === 'Enter' && addProduct()} />
                   <button onClick={addProduct} className="px-4 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">添加</button>
                 </div>
                 <div className="space-y-1.5">
                   {productList.map(p => (
                     <div key={p.id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl">
-                      <span className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />{p.name}
-                      </span>
+                      <span className="flex items-center gap-2 text-sm font-medium text-gray-700"><span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />{p.name}</span>
                       <button onClick={() => delProduct(p.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                     </div>
                   ))}
@@ -250,70 +389,102 @@ export default function KeyProductPage() {
   );
 }
 
-function KeyProductForm({ init, productList, onSave, onCancel }: { init: KeyProductRecord | null; productList: KeyProduct[]; onSave: (d: KeyProductRecord) => void; onCancel: () => void }) {
-  const [f, setF] = useState(init || { ...emptyForm, id: genId('KP'), productId: productList[0]?.id || 'p11' });
-  const cls = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:bg-white focus:border-gray-400 transition-all";
-  const lbl = "text-[11px] text-gray-400 mb-1 block font-medium";
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[8vh] p-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+          <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-full hover:bg-gray-200"><X size={16} className="text-gray-400" /></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
 
+const cls = "w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 focus:outline-none focus:bg-white focus:border-gray-400 transition-all";
+const lbl = "text-[11px] text-gray-400 mb-1 block font-medium";
+
+function ProductPicker({ productList, value, onChange }: { productList: KeyProduct[]; value: string; onChange: (id: string) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {productList.map(p => (
+        <button key={p.id} type="button" onClick={() => onChange(p.id)}
+          className={`px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${value === p.id ? 'border-starbucks-500 bg-starbucks-50 text-starbucks-700' : 'border-gray-200 text-gray-500'}`}>
+          {p.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function OverviewForm({ init, productList, onSave, onCancel }: { init: ProductOverview | null; productList: KeyProduct[]; onSave: (d: ProductOverview) => void; onCancel: () => void }) {
+  const [f, setF] = useState(init || { id: genId('PO'), productId: productList[0]?.id || 'p11', date: new Date().toISOString().slice(0, 10), restockQty: 0, stockQty: 0, distributeQty: 0 });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
-  const distRate = f.restockQty > 0 ? Math.round((f.distributeQty / f.restockQty) * 100) : 0;
+  return (
+    <div className="p-6 space-y-4">
+      <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
+      <div><label className={lbl}>日期</label><input type="date" value={f.date} onChange={e => set('date', e.target.value)} className={cls} /></div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><label className={lbl}>进货数量</label><input type="number" min="0" value={f.restockQty > 0 ? f.restockQty : ''} onChange={e => set('restockQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
+        <div><label className={lbl}>库存数量</label><input type="number" min="0" value={f.stockQty > 0 ? f.stockQty : ''} onChange={e => set('stockQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
+        <div><label className={lbl}>分销数量</label><input type="number" min="0" value={f.distributeQty > 0 ? f.distributeQty : ''} onChange={e => set('distributeQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
+      </div>
+      <div className="flex justify-end gap-3 pt-2">
+        <button onClick={onCancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>
+        <button onClick={() => { if (f.restockQty > 0) onSave(f); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">保存</button>
+      </div>
+    </div>
+  );
+}
 
+function DistForm({ init, productList, onSave, onCancel }: { init: DistributorDistribution | null; productList: KeyProduct[]; onSave: (d: DistributorDistribution) => void; onCancel: () => void }) {
+  const [f, setF] = useState(init || { id: genId('PD'), productId: productList[0]?.id || 'p11', distributorName: '', quantity: 0, downstreamCount: 0, podCount: 0, coverage: 0, strength: '中' as const, remark: '' });
+  const set = (k: string, v: any) => setF({ ...f, [k]: v });
   return (
     <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-      <div>
-        <label className={lbl}>单品选择 *</label>
-        <div className="grid grid-cols-2 gap-2">
-          {productList.map(p => (
-            <button key={p.id} type="button" onClick={() => set('productId', p.id)}
-              className={`px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-all ${f.productId === p.id ? 'border-starbucks-500 bg-starbucks-50 text-starbucks-700' : 'border-gray-200 text-gray-500'}`}>
-              {p.name}
-            </button>
+      <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
+      <div><label className={lbl}>分销商名称 *</label><input value={f.distributorName} onChange={e => set('distributorName', e.target.value)} placeholder="如：山海关梁波" className={cls} /></div>
+      <div><label className={lbl}>发货数量</label><input type="number" min="0" value={f.quantity > 0 ? f.quantity : ''} onChange={e => set('quantity', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
+      <div className="grid grid-cols-3 gap-3">
+        <div><label className={lbl}>下游客户数</label><input type="number" min="0" value={f.downstreamCount > 0 ? f.downstreamCount : ''} onChange={e => set('downstreamCount', parseInt(e.target.value) || 0)} className={cls} /></div>
+        <div><label className={lbl}>POD数</label><input type="number" min="0" value={f.podCount > 0 ? f.podCount : ''} onChange={e => set('podCount', parseInt(e.target.value) || 0)} className={cls} /></div>
+        <div><label className={lbl}>覆盖数</label><input type="number" min="0" value={f.coverage > 0 ? f.coverage : ''} onChange={e => set('coverage', parseInt(e.target.value) || 0)} className={cls} /></div>
+      </div>
+      <div><label className={lbl}>分销商实力</label>
+        <div className="grid grid-cols-3 gap-2">
+          {(['强', '中', '弱'] as const).map(s => (
+            <button key={s} type="button" onClick={() => set('strength', s)}
+              className={`px-3 py-2 rounded-xl text-sm font-medium border-2 ${f.strength === s ? 'border-starbucks-500 bg-starbucks-50 text-starbucks-700' : 'border-gray-200 text-gray-500'}`}>{s}</button>
           ))}
         </div>
       </div>
-
-      <div>
-        <label className={lbl}>录入日期</label>
-        <input type="date" value={f.date} onChange={e => set('date', e.target.value)} className={cls} />
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div><label className={lbl}>进货数量 *</label><input type="number" min="0" value={f.restockQty > 0 ? f.restockQty : ''} onChange={e => set('restockQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
-        <div><label className={lbl}>目前库存数量</label><input type="number" min="0" value={f.stockQty > 0 ? f.stockQty : ''} onChange={e => set('stockQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
-        <div><label className={lbl}>分销数量</label><input type="number" min="0" value={f.distributeQty > 0 ? f.distributeQty : ''} onChange={e => set('distributeQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
-      </div>
-
-      {f.restockQty > 0 && (
-        <div className="flex items-center gap-3 p-3 bg-starbucks-50 rounded-xl">
-          <span className="text-xs text-gray-500">分销率</span>
-          <span className={`text-lg font-bold ${distRate >= 80 ? 'text-emerald-600' : distRate >= 50 ? 'text-amber-600' : 'text-red-500'}`}>{distRate}%</span>
-          <span className="text-xs text-gray-400 ml-auto">分销 {f.distributeQty} / 进货 {f.restockQty}</span>
-        </div>
-      )}
-
-      <div>
-        <label className={lbl}>分销下游客户名称</label>
-        <input value={f.customerName} onChange={e => set('customerName', e.target.value)} placeholder="如：唐山辰日 / XX便利店" className={cls} />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className={lbl}>下游客户 POD 数</label><input type="number" min="0" value={f.customerPod > 0 ? f.customerPod : ''} onChange={e => set('customerPod', parseInt(e.target.value) || 0)} placeholder="陈列点/网点数" className={cls} /></div>
-        <div><label className={lbl}>目前覆盖数量</label><input type="number" min="0" value={f.coverage > 0 ? f.coverage : ''} onChange={e => set('coverage', parseInt(e.target.value) || 0)} placeholder="已覆盖网点数" className={cls} /></div>
-      </div>
-
-      <div>
-        <label className={lbl}>后期计划</label>
-        <textarea value={f.futurePlan} onChange={e => set('futurePlan', e.target.value)} placeholder="计划做成什么，如：新增XX家网点、提升覆盖率到XX%" rows={2} className={cls} />
-      </div>
-
-      <div>
-        <label className={lbl}>备注</label>
-        <input value={f.remark} onChange={e => set('remark', e.target.value)} placeholder="选填" className={cls} />
-      </div>
-
+      <div><label className={lbl}>备注</label><input value={f.remark} onChange={e => set('remark', e.target.value)} className={cls} /></div>
       <div className="flex justify-end gap-3 pt-2">
         <button onClick={onCancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>
-        <button onClick={() => { if (f.restockQty > 0) onSave(f); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium hover:bg-gray-800">保存</button>
+        <button onClick={() => { if (f.distributorName) onSave(f); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">保存</button>
+      </div>
+    </div>
+  );
+}
+
+function PlanForm({ init, productList, onSave, onCancel }: { init: MarketPlan | null; productList: KeyProduct[]; onSave: (d: MarketPlan) => void; onCancel: () => void }) {
+  const [f, setF] = useState(init || { id: genId('PL'), productId: productList[0]?.id || 'p11', plan: '', target: '', timeline: '', remark: '' });
+  const set = (k: string, v: any) => setF({ ...f, [k]: v });
+  return (
+    <div className="p-6 space-y-4">
+      <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
+      <div><label className={lbl}>市场怎么做 *</label><textarea value={f.plan} onChange={e => set('plan', e.target.value)} placeholder="如：进驻XX商超系统、联合经销商做终端陈列、做品鉴推广活动..." rows={3} className={cls} /></div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className={lbl}>目标</label><input value={f.target} onChange={e => set('target', e.target.value)} placeholder="如：新增50家网点" className={cls} /></div>
+        <div><label className={lbl}>计划时间</label><input value={f.timeline} onChange={e => set('timeline', e.target.value)} placeholder="如：2026年Q4" className={cls} /></div>
+      </div>
+      <div><label className={lbl}>备注</label><input value={f.remark} onChange={e => set('remark', e.target.value)} className={cls} /></div>
+      <div className="flex justify-end gap-3 pt-2">
+        <button onClick={onCancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>
+        <button onClick={() => { if (f.plan) onSave(f); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">保存</button>
       </div>
     </div>
   );
