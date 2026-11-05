@@ -313,7 +313,7 @@ export default function KeyProductPage() {
                 {filteredPlans.map(pl => {
                   const p = productById(pl.productId);
                   return (
-                    <div key={pl.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 group">
+                    <div key={pl.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 group hover:shadow-md transition-shadow">
                       <div className="flex items-center justify-between mb-3">
                         <span className="inline-flex items-center gap-1.5 text-sm font-bold" style={{ color: p?.color }}>
                           <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p?.color }} />{p?.name || pl.productId}
@@ -323,10 +323,27 @@ export default function KeyProductPage() {
                           <button onClick={() => delPlan(pl.id)} className="p-1.5 text-gray-300 hover:text-red-500"><Trash2 size={14} /></button>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-700 leading-relaxed">{pl.plan}</p>
-                      <div className="mt-3 flex items-center gap-4 text-xs">
-                        {pl.target && <span className="flex items-center gap-1 text-starbucks-600"><Target size={13} />目标：{pl.target}</span>}
-                        {pl.timeline && <span className="text-gray-500">时间：{pl.timeline}</span>}
+
+                      {pl.title && <p className="text-base font-bold text-gray-800 mb-2">{pl.title}</p>}
+
+                      {/* 目标指标 */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        {pl.targetDistributor > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-gray-800">{pl.targetDistributor}</p><p className="text-[10px] text-gray-400">目标分销商</p></div>}
+                        {pl.monthlyNewDistributor > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-blue-600">{pl.monthlyNewDistributor}</p><p className="text-[10px] text-gray-400">每月新增</p></div>}
+                        {pl.targetCoverage > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-emerald-600">{pl.targetCoverage}</p><p className="text-[10px] text-gray-400">目标网点</p></div>}
+                        {pl.targetPod > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-amber-600">{pl.targetPod}</p><p className="text-[10px] text-gray-400">目标POD</p></div>}
+                        {pl.targetSales > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-violet-600">{pl.targetSales}</p><p className="text-[10px] text-gray-400">目标销量</p></div>}
+                        {pl.budget > 0 && <div className="bg-gray-50 rounded-lg p-2.5 text-center"><p className="text-lg font-bold text-red-500">¥{pl.budget.toLocaleString()}</p><p className="text-[10px] text-gray-400">预算</p></div>}
+                      </div>
+
+                      {pl.strategy && (
+                        <div className="bg-starbucks-50/50 rounded-lg p-3 mb-2">
+                          <p className="text-xs text-gray-700 leading-relaxed">{pl.strategy}</p>
+                        </div>
+                      )}
+
+                      <div className="flex items-center justify-between text-xs text-gray-500">
+                        {(pl.startDate || pl.endDate) && <span>{pl.startDate || '?'} → {pl.endDate || '?'}</span>}
                       </div>
                       {pl.remark && <p className="mt-2 text-xs text-gray-400">{pl.remark}</p>}
                     </div>
@@ -471,20 +488,42 @@ function DistForm({ init, productList, onSave, onCancel }: { init: DistributorDi
 }
 
 function PlanForm({ init, productList, onSave, onCancel }: { init: MarketPlan | null; productList: KeyProduct[]; onSave: (d: MarketPlan) => void; onCancel: () => void }) {
-  const [f, setF] = useState(init || { id: genId('PL'), productId: productList[0]?.id || 'p11', plan: '', target: '', timeline: '', remark: '' });
+  const [f, setF] = useState(init || { id: genId('PL'), productId: productList[0]?.id || 'p11', title: '', strategy: '', targetDistributor: 0, monthlyNewDistributor: 0, targetCoverage: 0, targetPod: 0, targetSales: 0, startDate: '', endDate: '', budget: 0, remark: '' });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
       <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
-      <div><label className={lbl}>市场怎么做 *</label><textarea value={f.plan} onChange={e => set('plan', e.target.value)} placeholder="如：进驻XX商超系统、联合经销商做终端陈列、做品鉴推广活动..." rows={3} className={cls} /></div>
-      <div className="grid grid-cols-2 gap-3">
-        <div><label className={lbl}>目标</label><input value={f.target} onChange={e => set('target', e.target.value)} placeholder="如：新增50家网点" className={cls} /></div>
-        <div><label className={lbl}>计划时间</label><input value={f.timeline} onChange={e => set('timeline', e.target.value)} placeholder="如：2026年Q4" className={cls} /></div>
+      <div><label className={lbl}>计划标题</label><input value={f.title} onChange={e => set('title', e.target.value)} placeholder="如：P450黑咖啡 唐山区域铺货计划" className={cls} /></div>
+
+      <div className="border-t border-gray-100 pt-3">
+        <p className="text-xs font-bold text-gray-600 mb-2">目标指标</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={lbl}>目标分销商数</label><input type="number" min="0" value={f.targetDistributor > 0 ? f.targetDistributor : ''} onChange={e => set('targetDistributor', parseInt(e.target.value) || 0)} placeholder="家" className={cls} /></div>
+          <div><label className={lbl}>每月新增分销商</label><input type="number" min="0" value={f.monthlyNewDistributor > 0 ? f.monthlyNewDistributor : ''} onChange={e => set('monthlyNewDistributor', parseInt(e.target.value) || 0)} placeholder="家/月" className={cls} /></div>
+          <div><label className={lbl}>目标覆盖网点</label><input type="number" min="0" value={f.targetCoverage > 0 ? f.targetCoverage : ''} onChange={e => set('targetCoverage', parseInt(e.target.value) || 0)} placeholder="家" className={cls} /></div>
+          <div><label className={lbl}>目标POD数</label><input type="number" min="0" value={f.targetPod > 0 ? f.targetPod : ''} onChange={e => set('targetPod', parseInt(e.target.value) || 0)} placeholder="个" className={cls} /></div>
+          <div><label className={lbl}>目标销量</label><input type="number" min="0" value={f.targetSales > 0 ? f.targetSales : ''} onChange={e => set('targetSales', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
+          <div><label className={lbl}>费用预算</label><input type="number" min="0" value={f.budget > 0 ? f.budget : ''} onChange={e => set('budget', parseInt(e.target.value) || 0)} placeholder="元" className={cls} /></div>
+        </div>
       </div>
+
+      <div className="border-t border-gray-100 pt-3">
+        <p className="text-xs font-bold text-gray-600 mb-2">市场策略</p>
+        <div><label className={lbl}>怎么做</label><textarea value={f.strategy} onChange={e => set('strategy', e.target.value)} placeholder="如：进驻XX商超系统、联合经销商做终端陈列、做品鉴推广活动..." rows={3} className={cls} /></div>
+      </div>
+
+      <div className="border-t border-gray-100 pt-3">
+        <p className="text-xs font-bold text-gray-600 mb-2">时间</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div><label className={lbl}>开始时间</label><input type="date" value={f.startDate} onChange={e => set('startDate', e.target.value)} className={cls} /></div>
+          <div><label className={lbl}>结束时间</label><input type="date" value={f.endDate} onChange={e => set('endDate', e.target.value)} className={cls} /></div>
+        </div>
+      </div>
+
       <div><label className={lbl}>备注</label><input value={f.remark} onChange={e => set('remark', e.target.value)} className={cls} /></div>
       <div className="flex justify-end gap-3 pt-2">
         <button onClick={onCancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>
-        <button onClick={() => { if (f.plan) onSave(f); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">保存</button>
+        <button onClick={() => { if (f.title || f.strategy) onSave(f); }} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl text-sm font-medium">保存</button>
       </div>
     </div>
   );

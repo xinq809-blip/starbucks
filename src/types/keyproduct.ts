@@ -25,8 +25,26 @@ export interface DistributorDistribution {
 export interface MarketPlan {
   id: string;
   productId: string;
-  plan: string;      // 计划怎么做
-  target: string;    // 目标
-  timeline: string;  // 计划时间
+  /** 计划标题 */
+  title: string;
+  /** 市场策略（怎么做） */
+  strategy: string;
+  /** 目标分销商数 */
+  targetDistributor: number;
+  /** 每月新增分销商 */
+  monthlyNewDistributor: number;
+  /** 目标覆盖网点数 */
+  targetCoverage: number;
+  /** 目标POD数 */
+  targetPod: number;
+  /** 目标销量(件) */
+  targetSales: number;
+  /** 开始时间 */
+  startDate: string;
+  /** 结束时间 */
+  endDate: string;
+  /** 费用预算(元) */
+  budget: number;
+  /** 备注 */
   remark: string;
 }
