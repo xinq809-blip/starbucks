@@ -15,6 +15,7 @@ import Fridge from './pages/Fridge';
 import Performance from './pages/Performance';
 import DailyPlan from './pages/MonthlyReport';
 import Overview from './pages/Overview';
+import KeyProduct from './pages/KeyProduct';
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route element={<Layout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/overview" element={<Overview />} />
+            <Route path="/key-product" element={<KeyProduct />} />
             <Route path="/entry" element={<DataEntry />} />
             <Route path="/history" element={<DataOverview />} />
             <Route path="/products" element={<Products />} />
