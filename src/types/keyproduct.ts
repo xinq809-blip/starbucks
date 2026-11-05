@@ -6,6 +6,7 @@ export interface ProductOverview {
   restockQty: number;    // 进货数量
   stockQty: number;      // 目前库存数量
   distributeQty: number; // 分销数量（发给所有分销商的总量）
+  coverage: number;      // 单品覆盖网点数（覆盖了多少终端）
 }
 
 /** 分销商发货明细 + 实力评估 */

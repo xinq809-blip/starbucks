@@ -115,7 +115,8 @@ export default function KeyProductPage() {
     const restock = filteredOverview.reduce((s, o) => s + (o.restockQty || 0), 0);
     const stock = filteredOverview.reduce((s, o) => s + (o.stockQty || 0), 0);
     const dist = filteredOverview.reduce((s, o) => s + (o.distributeQty || 0), 0);
-    return { restock, stock, dist, rate: restock > 0 ? Math.round((dist / restock) * 100) : 0 };
+    const coverage = filteredOverview.reduce((s, o) => s + (o.coverage || 0), 0);
+    return { restock, stock, dist, coverage, rate: restock > 0 ? Math.round((dist / restock) * 100) : 0 };
   }, [filteredOverview]);
 
   const filteredDist = filter === 'all' ? distributions : distributions.filter(d => d.productId === filter);
@@ -173,11 +174,12 @@ export default function KeyProductPage() {
         {/* ====== Tab 1: 单品总览 ====== */}
         {tab === 'overview' && (
           <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
               {[
                 { label: '进货总量', v: overviewSummary.restock, unit: '件', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
                 { label: '库存总量', v: overviewSummary.stock, unit: '件', icon: Package, color: 'text-violet-600', bg: 'bg-violet-50' },
                 { label: '分销总量', v: overviewSummary.dist, unit: '件', icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                { label: '覆盖网点', v: overviewSummary.coverage, unit: '家', icon: Store, color: 'text-amber-600', bg: 'bg-amber-50' },
                 { label: '分销率', v: overviewSummary.rate + '%', unit: '', icon: Target, color: 'text-starbucks-600', bg: 'bg-starbucks-50' },
               ].map(c => (
                 <div key={c.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -200,11 +202,12 @@ export default function KeyProductPage() {
                   <thead><tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-500">
                     <th className="text-left px-5 py-3">单品</th><th className="text-left px-3 py-3">日期</th>
                     <th className="text-right px-3 py-3">进货</th><th className="text-right px-3 py-3">库存</th>
-                    <th className="text-right px-3 py-3">分销</th><th className="text-right px-3 py-3">分销率</th>
+                    <th className="text-right px-3 py-3">分销</th><th className="text-right px-3 py-3">覆盖网点</th>
+                    <th className="text-right px-3 py-3">分销率</th>
                     <th className="text-center px-3 py-3 w-16">操作</th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-50">
-                    {filteredOverview.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-gray-400">暂无整体数据</td></tr> :
+                    {filteredOverview.length === 0 ? <tr><td colSpan={8} className="text-center py-10 text-gray-400">暂无整体数据</td></tr> :
                       filteredOverview.map(o => {
                         const p = productById(o.productId);
                         const rate = o.restockQty > 0 ? Math.round((o.distributeQty / o.restockQty) * 100) : 0;
@@ -215,6 +218,7 @@ export default function KeyProductPage() {
                             <td className="px-3 py-3 text-right text-gray-600">{o.restockQty.toLocaleString()}</td>
                             <td className="px-3 py-3 text-right text-gray-600">{o.stockQty.toLocaleString()}</td>
                             <td className="px-3 py-3 text-right font-bold text-emerald-600">{o.distributeQty.toLocaleString()}</td>
+                            <td className="px-3 py-3 text-right text-gray-600">{o.coverage > 0 ? o.coverage.toLocaleString() : '—'}</td>
                             <td className="px-3 py-3 text-right font-bold text-gray-800">{rate}%</td>
                             <td className="px-3 py-3 text-center"><div className="flex justify-center gap-1 opacity-0 group-hover:opacity-100">
                               <button onClick={() => { setEditingOverview(o); setOverviewModal(true); }} className="p-1.5 text-gray-300 hover:text-blue-500"><Pencil size={14} /></button>
@@ -260,7 +264,7 @@ export default function KeyProductPage() {
                   <thead><tr className="bg-gray-50/50 border-b border-gray-100 text-xs text-gray-500">
                     <th className="text-left px-5 py-3">单品</th><th className="text-left px-3 py-3">分销商</th>
                     <th className="text-right px-3 py-3">发货量</th><th className="text-right px-3 py-3">下游客户</th>
-                    <th className="text-right px-3 py-3">网点数</th>
+                    <th className="text-right px-3 py-3">分销商POD数</th>
                     <th className="text-center px-3 py-3">实力</th><th className="text-center px-3 py-3 w-16">操作</th>
                   </tr></thead>
                   <tbody className="divide-y divide-gray-50">
@@ -440,16 +444,17 @@ function ProductPicker({ productList, value, onChange }: { productList: KeyProdu
 }
 
 function OverviewForm({ init, productList, onSave, onCancel }: { init: ProductOverview | null; productList: KeyProduct[]; onSave: (d: ProductOverview) => void; onCancel: () => void }) {
-  const [f, setF] = useState(init || { id: genId('PO'), productId: productList[0]?.id || 'p11', date: new Date().toISOString().slice(0, 10), restockQty: 0, stockQty: 0, distributeQty: 0 });
+  const [f, setF] = useState(init || { id: genId('PO'), productId: productList[0]?.id || 'p11', date: new Date().toISOString().slice(0, 10), restockQty: 0, stockQty: 0, distributeQty: 0, coverage: 0 });
   const set = (k: string, v: any) => setF({ ...f, [k]: v });
   return (
     <div className="p-6 space-y-4">
       <div><label className={lbl}>单品 *</label><ProductPicker productList={productList} value={f.productId} onChange={id => set('productId', id)} /></div>
       <div><label className={lbl}>日期</label><input type="date" value={f.date} onChange={e => set('date', e.target.value)} className={cls} /></div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div><label className={lbl}>进货数量</label><input type="number" min="0" value={f.restockQty > 0 ? f.restockQty : ''} onChange={e => set('restockQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
         <div><label className={lbl}>库存数量</label><input type="number" min="0" value={f.stockQty > 0 ? f.stockQty : ''} onChange={e => set('stockQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
         <div><label className={lbl}>分销数量</label><input type="number" min="0" value={f.distributeQty > 0 ? f.distributeQty : ''} onChange={e => set('distributeQty', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
+        <div><label className={lbl}>覆盖网点数</label><input type="number" min="0" value={f.coverage > 0 ? f.coverage : ''} onChange={e => set('coverage', parseInt(e.target.value) || 0)} placeholder="覆盖终端数" className={cls} /></div>
       </div>
       <div className="flex justify-end gap-3 pt-2">
         <button onClick={onCancel} className="px-5 py-2.5 text-sm text-gray-500 hover:bg-gray-50 rounded-xl">取消</button>
@@ -469,7 +474,7 @@ function DistForm({ init, productList, onSave, onCancel }: { init: DistributorDi
       <div><label className={lbl}>发货数量</label><input type="number" min="0" value={f.quantity > 0 ? f.quantity : ''} onChange={e => set('quantity', parseInt(e.target.value) || 0)} placeholder="件" className={cls} /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className={lbl}>下游客户数</label><input type="number" min="0" value={f.downstreamCount > 0 ? f.downstreamCount : ''} onChange={e => set('downstreamCount', parseInt(e.target.value) || 0)} className={cls} /></div>
-        <div><label className={lbl}>网点数</label><input type="number" min="0" value={f.outletCount > 0 ? f.outletCount : ''} onChange={e => set('outletCount', parseInt(e.target.value) || 0)} placeholder="销售终端/POD" className={cls} /></div>
+        <div><label className={lbl}>分销商POD数</label><input type="number" min="0" value={f.outletCount > 0 ? f.outletCount : ''} onChange={e => set('outletCount', parseInt(e.target.value) || 0)} placeholder="分销商自己的POD数" className={cls} /></div>
       </div>
       <div><label className={lbl}>分销商实力</label>
         <div className="grid grid-cols-3 gap-2">
